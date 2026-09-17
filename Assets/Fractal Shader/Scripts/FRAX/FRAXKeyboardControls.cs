@@ -1,4 +1,3 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
@@ -60,7 +59,7 @@ namespace FractalShader
             panelImage.color = new Color(0.02f, 0.03f, 0.06f, 0.82f);
             panelImage.raycastTarget = false;
 
-            GameObject labelObject = new GameObject("Text", typeof(RectTransform), typeof(TextMeshProUGUI));
+            GameObject labelObject = new GameObject("Text", typeof(RectTransform), typeof(UnityEngine.UI.Text));
             labelObject.transform.SetParent(helpOverlay.transform, false);
 
             RectTransform labelTransform = labelObject.GetComponent<RectTransform>();
@@ -69,21 +68,14 @@ namespace FractalShader
             labelTransform.offsetMin = new Vector2(18f, 14f);
             labelTransform.offsetMax = new Vector2(-18f, -14f);
 
-            TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
-            // This asset package does not define TMP's project-wide default font.
-            // Reuse the font already assigned to its disabled legacy UI instead.
-            TextMeshProUGUI existingLabel = FindFirstObjectByType<TextMeshProUGUI>(FindObjectsInactive.Include);
-            label.font = existingLabel != null ? existingLabel.font : null;
-            if (label.font == null)
-            {
-                Debug.LogWarning("FRAX keyboard help could not find a TextMeshPro font asset.", this);
-                Destroy(labelObject);
-                Destroy(helpOverlay);
-                helpOverlay = null;
-                return;
-            }
-            label.fontSize = 16f;
-            label.alignment = TextAlignmentOptions.TopLeft;
+            UnityEngine.UI.Text label = labelObject.GetComponent<UnityEngine.UI.Text>();
+            // Use Unity's built-in font so the help does not depend on this package's
+            // incomplete TextMeshPro project settings.
+            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            label.fontSize = 18;
+            label.alignment = TextAnchor.UpperLeft;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Overflow;
             label.color = Color.white;
             label.raycastTarget = false;
             label.text = "<b>FRAX CONTROLS</b>\n\nW A S D  Move\nMouse  Look\nShift  Fly faster\nQ / E / Space  Down / Up\nLeft / Right Arrow  Curve Space\nEsc  Release mouse\nH  Hide / show this help";
