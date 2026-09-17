@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: a1b4d16c7266d804db54ee1c7e33fabb
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/FRAX/RaymarchFeature.cs
+  uploadId: 905742

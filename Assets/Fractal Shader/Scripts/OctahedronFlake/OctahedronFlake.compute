@@ -1,0 +1,146 @@
+﻿#pragma kernel CSMain
+
+// Core Render Textures
+RWTexture2D<float4> Texture;
+Texture2D<float4> Source;
+
+// Camera Matrices
+float4x4 CamToWorld;
+float4x4 CamInverseProjection;
+
+// Fractal Parameters
+int Iterations;
+float Size;
+float SizeDec; // Size decrease/scaling factor per iteration
+
+// --- CUSTOM SHADER VARIABLES ---
+float4 FractalColor;
+float4 BackgroundColor;
+float EmissionStrength;
+float FogDensity;
+float MaxDistance;
+uint _Width;
+uint _Height;
+
+// Raymarching Constants
+static const int steps = 100;
+static const float epsilon = 0.001;
+
+struct Ray
+{
+    float3 origin;
+    float3 direction;
+};
+
+// Signed Distance Field (SDF) for a standard Octahedron
+float DEOctahedron(float3 p, float s)
+{
+    p = abs(p);
+    float m = p.x + p.y + p.z - s;
+    float3 q = 0.0;
+    
+    if (3.0 * p.x < m)
+        q = p.xyz;
+    else if (3.0 * p.y < m)
+        q = p.yzx;
+    else if (3.0 * p.z < m)
+        q = p.zxy;
+    else
+        return m * 0.57735027; // Optimization: 1.0 / sqrt(3.0)
+        
+    float k = clamp(0.5 * (q.z - q.y + s), 0.0, s);
+    return length(float3(q.x, q.y - s + k, q.z - k));
+}
+
+// Helper function to fold space across a plane defined by a normal vector
+float3 Fold(float3 p, float3 n)
+{
+    return p - 2.0 * min(0.0, dot(p, n)) * n;
+}
+
+// Distance Estimator (DE) for the Octahedron Fractal (Sierpinski-style IFS)
+float DE(float3 p)
+{
+    float s = 1.0;
+    // Safety check: Prevent division by zero or negative scaling
+    float safeSizeDec = max(SizeDec, 1.1);
+    
+    for (int i = 0; i < Iterations; i++)
+    {
+        // 1. Symmetry fold
+        p = abs(p);
+        
+        // 2. Scale and update current total scale factor
+        p *= safeSizeDec;
+        s *= safeSizeDec;
+        
+        // 3. Iterative Function System (IFS) folding across octahedron planes
+        p = Fold(p, normalize(float3(0, 1, 1)));
+        p = Fold(p, normalize(float3(0, 1, -1)));
+        p = Fold(p, normalize(float3(1, 1, 0)));
+        p = Fold(p, normalize(float3(-1, 1, 0)));
+        
+        // 4. Translate back to maintain structural alignment
+        p -= float3(0, 1, 0) * Size * (safeSizeDec - 1.0);
+    }
+    
+    // Return normalized distance by dividing by the accumulated scale factor
+    return DEOctahedron(p, Size) / max(s, 0.001);
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    // Safety check for screen bounds
+    if (id.x >= _Width || id.y >= _Height)
+        return;
+
+    // Convert pixel coordinates to Normalized Device Coordinates (-1.0 to 1.0)
+    float2 uv = (id.xy / float2(_Width, _Height)) * 2.0 - 1.0;
+
+    // Construct camera ray
+    float3 origin = mul(CamToWorld, float4(0, 0, 0, 1)).xyz;
+    float3 direction = mul(CamInverseProjection, float4(uv, 0, 1)).xyz;
+    direction = mul(CamToWorld, float4(direction, 0)).xyz;
+    direction = normalize(direction);
+
+    float totalDist = 0;
+    int s;
+    bool hit = false;
+
+    // Standard Raymarching Loop
+    for (s = 0; s < steps; s++)
+    {
+        float d = DE(origin + direction * totalDist);
+        if (d < epsilon)
+        {
+            hit = true;
+            break;
+        }
+        if (totalDist > MaxDistance)
+            break;
+            
+        totalDist += d;
+    }
+
+    float4 sceneColor = Source[id.xy];
+    
+    if (hit)
+    {
+        // Calculate basic Ambient Occlusion (AO) based on raymarching step count
+        float ao = 1.0 - (float) s / steps;
+        float4 finalColor = FractalColor * ao * EmissionStrength;
+        
+        // Fog Calculation: Exponential distance-based falloff
+        float fog = 1.0 - exp(-totalDist * FogDensity);
+        finalColor = lerp(finalColor, BackgroundColor, fog);
+        
+        // Blend fractal with the existing scene/source texture
+        Texture[id.xy] = saturate(sceneColor + finalColor);
+    }
+    else
+    {
+        // Smoothly blend the background color for infinite distance
+        Texture[id.xy] = lerp(sceneColor, BackgroundColor, 0.5);
+    }
+}

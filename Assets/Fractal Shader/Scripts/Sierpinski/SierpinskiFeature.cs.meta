@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: a6dba7a36a975d44d8175208fea1733f
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/Sierpinski/SierpinskiFeature.cs
+  uploadId: 905742

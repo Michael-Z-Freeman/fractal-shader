@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 9cf63e2a64f7d924e8dfe103703c0164
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/InfiniteSpheres/InfiniteSpheresFeature.cs
+  uploadId: 905742

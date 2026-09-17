@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: ab8cc282b4f3dfe4db2fb17f4e5ad301
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scenes/OctahedronFlake.unity
+  uploadId: 905742

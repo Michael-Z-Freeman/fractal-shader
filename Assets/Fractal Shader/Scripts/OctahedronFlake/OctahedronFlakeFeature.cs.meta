@@ -1,0 +1,9 @@
+fileFormatVersion: 2
+guid: 963b5cd62cf6bf14fb03e0faeb40b762
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/OctahedronFlake/OctahedronFlakeFeature.cs
+  uploadId: 905742

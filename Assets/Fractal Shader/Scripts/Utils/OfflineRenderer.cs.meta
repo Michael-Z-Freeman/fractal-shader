@@ -1,0 +1,10 @@
+﻿fileFormatVersion: 2
+guid: 9f74ce9d55ac49ffb26bcf3ab85f1999
+timeCreated: 1611400994
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/Utils/OfflineRenderer.cs
+  uploadId: 905742

@@ -1,0 +1,18 @@
+fileFormatVersion: 2
+guid: 90a761d80ffff5340abbc43c8266aacc
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences: []
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/Mandelbulb/MandelbulbFeature.cs
+  uploadId: 905742

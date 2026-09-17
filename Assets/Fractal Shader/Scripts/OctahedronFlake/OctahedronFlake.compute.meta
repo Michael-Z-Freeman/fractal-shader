@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: adbbde9186d5a224191e42cfc565ebe0
+ComputeShaderImporter:
+  externalObjects: {}
+  currentAPIMask: 4
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/OctahedronFlake/OctahedronFlake.compute
+  uploadId: 905742

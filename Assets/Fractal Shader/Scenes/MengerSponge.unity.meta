@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: c4a3be4271829e14fa075f54d785c185
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scenes/MengerSponge.unity
+  uploadId: 905742

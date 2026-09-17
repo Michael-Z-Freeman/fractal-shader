@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: fbe9e9278164a7e40b34618250bb1c08
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/FRAX/Lighting/LightingData.asset
+  uploadId: 905742

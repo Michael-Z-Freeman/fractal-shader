@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: 16cccd673ab22324ea5caab99a233270
+PrefabImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/UI/Prefabs/O_Vec3.prefab
+  uploadId: 905742

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 6638258ddc4d85f468270400b9a0214a
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/UI/Fonts/Roboto-Light SDF.asset
+  uploadId: 905742

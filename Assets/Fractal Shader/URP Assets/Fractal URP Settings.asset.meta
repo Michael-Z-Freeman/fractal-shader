@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: ab9e15cdc8971a74baacc75f5e0ee99e
+NativeFormatImporter:
+  externalObjects: {}
+  mainObjectFileID: 11400000
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/URP Assets/Fractal URP Settings.asset
+  uploadId: 905742

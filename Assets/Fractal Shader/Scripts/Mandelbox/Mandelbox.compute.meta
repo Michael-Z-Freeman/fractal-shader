@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 08444b542cd1a73499118efa98cf7f74
+ComputeShaderImporter:
+  externalObjects: {}
+  currentAPIMask: 4
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/Mandelbox/Mandelbox.compute
+  uploadId: 905742

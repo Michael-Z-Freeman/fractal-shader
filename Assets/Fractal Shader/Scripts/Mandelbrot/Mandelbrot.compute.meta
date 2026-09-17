@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 7fbbd243a70ca3a4ab248fc6b0a5d8f5
+ComputeShaderImporter:
+  externalObjects: {}
+  currentAPIMask: 4
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/Mandelbrot/Mandelbrot.compute
+  uploadId: 905742

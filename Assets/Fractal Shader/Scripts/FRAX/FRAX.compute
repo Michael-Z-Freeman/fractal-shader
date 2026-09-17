@@ -1,0 +1,179 @@
+﻿#pragma kernel CSMain
+
+// Core Render Textures
+RWTexture2D<float4> Texture;
+Texture2D<float4> Source;
+
+// Camera Matrices
+float4x4 CamToWorld;
+float4x4 CamInverseProjection;
+
+// Base Fractal Parameters
+float Edge;
+float3 CurveSpace;
+
+// --- CUSTOM SHADER VARIABLES ---
+float Size;
+int Iterations;
+float4 AccentColor;
+float4 BackgroundColor;
+float ColorIntensity;
+
+// Screen Dimensions
+uint _Width;
+uint _Height;
+
+// Raymarching Constants
+static const int steps = 200; // Reduced to a safe step count for smoother performance
+static const float epsilon = 0.0001;
+
+struct Ray
+{
+    float3 origin;
+    float3 direction;
+};
+
+Ray CreateRay(float3 origin, float3 direction)
+{
+    Ray ray;
+    ray.origin = origin;
+    ray.direction = direction;
+    return ray;
+}
+
+// Constructs a ray from the camera through the current screen pixel
+Ray CreateCameraRay(float2 uv)
+{
+    float3 origin = mul(CamToWorld, float4(0, 0, 0, 1)).xyz;
+    float3 direction = mul(CamInverseProjection, float4(uv, 0, 1)).xyz;
+    direction = mul(CamToWorld, float4(direction, 0)).xyz;
+    direction = normalize(direction);
+    return CreateRay(origin, direction);
+}
+
+// Standard Signed Distance Field (SDF) for a solid 3D Box
+float DEBox(float3 p, float s)
+{
+    float3 q = abs(p) - float3(s, s, s);
+    return length(max(q, 0.0)) + min(max(q.x, max(q.y, q.z)), 0.0);
+}
+
+// 2D Box SDF used as a base for the cross cutouts
+float DEBox2D(float2 p, float s)
+{
+    float2 d = abs(p) - s;
+    return length(max(d, 0.0)) + min(max(d.x, d.y), 0);
+}
+
+// Creates an infinite 3D cross shape used to carve out the holes in the fractal
+float DECross(float3 p, float s)
+{
+    s = s / 3.0;
+    float d = DEBox2D(p.xy, s);
+    d = min(d, DEBox2D(p.zx, s));
+    return min(d, DEBox2D(p.yz, s));
+}
+
+// Domain repetition function to create infinite looping structures
+float3 RepeatSpace(float3 p)
+{
+    float a = Size / 3.0 * 4.0;
+    float x = fmod(abs(p.x - a / 2.0), a) - a / 2.0;
+    float y = fmod(abs(p.y - a / 2.0), a) - a / 2.0;
+    float z = fmod(abs(p.z - a / 2.0), a) - a / 2.0;
+    return float3(x, y, z);
+}
+
+// Keeps the camera/ray origin bounded within the repeated space grid
+float3 ClampPosition(float3 p)
+{
+    float a = Size / 3.0 * 4.0;
+    float x = fmod((p.x - a / 2.0), a) + a / 2.0;
+    float y = fmod((p.y - a / 2.0), a) + a / 2.0;
+    float z = fmod((p.z - a / 2.0), a) + a / 2.0;
+    return float3(x, y, z);
+}
+
+// Main Distance Estimator for the Menger Sponge fractal
+float DE(float3 p)
+{
+    p = RepeatSpace(p);
+    
+    // Start with a base box
+    float d = DEBox(p, Size / Edge);
+    
+    // Subtract the primary central cross
+    d = max(-DECross(p, Size), d);
+    
+    // Iteratively carve out smaller crosses to build the fractal detail
+    for (int i = 0; i < Iterations - 1; i++)
+    {
+        p *= 3.0;
+        p = abs(p);
+        p -= float3(Size, Size, Size);
+        p = abs(p);
+        p -= float3(Size, Size, Size);
+        
+        d = max(d, -DECross(p, Size) / pow(3.0, (float) (i + 1)));
+    }
+    return d;
+}
+
+// Core Raymarching loop returning both step ratio and total distance traveled
+float2 March(Ray ray)
+{
+    float d = 0;
+    float3 eye = ray.origin;
+    int s = 0;
+    
+    while (s < steps)
+    {
+        d = DE(ray.origin);
+        
+        // Non-euclidean space bending effect
+        ray.direction += CurveSpace * d / 100.0;
+        
+        // Far clipping plane equivalent
+        if (length(eye - ray.origin) > 500.0)
+            break;
+            
+        // Surface hit detection
+        if (d < epsilon)
+            break;
+            
+        ray.origin += ray.direction * d;
+        s++;
+    }
+    
+    return float2((float) s / (float) steps, length(eye - ray.origin));
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    // GPU freeze prevention: Bounds checking against screen dimensions
+    if (id.x >= _Width || id.y >= _Height)
+        return;
+    
+    // Convert pixel coordinates to Normalized Device Coordinates (NDC: -1.0 to 1.0)
+    float2 uv = float2(id.xy) / float2((float) _Width, (float) _Height) * 2.0 - 1.0;
+    
+    Ray ray = CreateCameraRay(uv);
+    ray.origin = ClampPosition(ray.origin);
+    
+    float2 res = March(ray);
+    
+    // Calculate Ambient Occlusion / Glow using the step count and Inspector variables
+    float4 ao = res.x * AccentColor * ColorIntensity;
+    
+    // Colorize only the rays that hit the object (distance < 500)
+    if (res.y < 500.0)
+    {
+        Texture[id.xy] = BackgroundColor + ao;
+    }
+    else
+    {
+        // Render the source camera texture for the background if nothing was hit
+        Texture[id.xy] = Source[id.xy];
+    }
+}

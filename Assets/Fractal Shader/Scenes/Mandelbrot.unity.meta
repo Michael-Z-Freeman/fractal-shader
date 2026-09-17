@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: e50eaccf95d458e41b955db892f214a2
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scenes/Mandelbrot.unity
+  uploadId: 905742

@@ -1,0 +1,195 @@
+﻿#pragma kernel CSMain
+
+// Core Render Textures
+RWTexture2D<float4> Texture;
+Texture2D<float4> Source;
+
+// Camera Matrices
+float4x4 CamToWorld;
+float4x4 CamInverseProjection;
+
+// Mandelbox Fractal Parameters
+int Iterations;
+float Scale;
+int Julia;
+float3 C;
+
+// Color Parameters
+float Mix;
+float3 Color;
+
+// Screen Dimensions
+int _Width;
+int _Height;
+
+// Raymarching Constants
+static const int steps = 400;
+static const float epsilon = 0.0001;
+
+// Base structure for a ray in 3D space
+struct Ray
+{
+    float3 origin;
+    float3 direction;
+};
+
+// Custom struct to hold both the distance (n) and the accumulated position (p) for orbit trapping
+struct Data
+{
+    float n;
+    float3 p;
+};
+
+// Constructor-like function for the Data struct
+Data DataConstr(float n, float3 p)
+{
+    Data data;
+    data.n = n;
+    data.p = p;
+    return data;
+}
+
+// Sphere Fold: Inverts space inside a specific radius.
+// This creates the spherical holes and curved structures in the Mandelbox.
+void SphereFold(inout float3 z, inout float dz)
+{
+    float fixedRadius = 1.0;
+    float minRadius = 0.5;
+    
+    float fixedRadius2 = pow(fixedRadius, 2.0);
+    float minRadius2 = pow(minRadius, 2.0);
+    
+    float r2 = dot(z, z);
+    
+    // FIX APPLIED: Corrected logic mapping to ensure proper inversion calculations
+    if (r2 < minRadius2)
+    {
+        // Linear scaling inside the minimum radius
+        float temp = (fixedRadius2 / minRadius2);
+        z *= temp;
+        dz *= temp;
+    }
+    else if (r2 < fixedRadius2)
+    {
+        // Spherical inversion between minRadius and fixedRadius
+        float temp = (fixedRadius2 / r2);
+        z *= temp;
+        dz *= temp;
+    }
+}
+
+// Box Fold: Folds space along the main axes.
+// This creates the cubic outer shape and grid-like internal structures of the Mandelbox.
+void BoxFold(inout float3 z)
+{
+    float foldingLimit = 1.0;
+    z = clamp(z, -foldingLimit, foldingLimit) * 2.0 - z;
+}
+
+// Orbit Trapping: Used for coloring the fractal based on its trajectory
+void Trap(float3 z, inout float3 trap)
+{
+    if (length(z) < length(trap))
+        trap = z;
+}
+
+// Distance Estimator (DE) for the Mandelbox Fractal
+Data DE(float3 p)
+{
+    float3 z = p;
+    float3 trap = p;
+    float dr = 1.0;
+    
+    for (int i = 0; i < Iterations; i++)
+    {
+        // The core Mandelbox formula: BoxFold -> SphereFold -> Scale & Translate
+        BoxFold(z);
+        SphereFold(z, dr);
+        
+        z *= Scale;
+        z += (Julia == 1) ? C : p;
+        dr = dr * abs(Scale) + 1.0;
+        
+        Trap(z, trap);
+    }
+    
+    // Return distance to the surface, and the orbit trap vector for coloring
+    return DataConstr(length(z) / abs(dr), trap);
+}
+
+Ray CreateRay(float3 origin, float3 direction)
+{
+    Ray ray;
+    ray.origin = origin;
+    ray.direction = direction;
+    return ray;
+}
+
+// Constructs a ray from the camera through the current screen pixel
+Ray CreateCameraRay(float2 uv)
+{
+    float3 origin = mul(CamToWorld, float4(0, 0, 0, 1)).xyz;
+    float3 direction = mul(CamInverseProjection, float4(uv, 0, 1)).xyz;
+    direction = mul(CamToWorld, float4(direction, 0)).xyz;
+    direction = normalize(direction);
+    return CreateRay(origin, direction);
+}
+
+// Core Raymarching loop
+Data March(Ray ray)
+{
+    Data d = DataConstr(0, float3(0, 0, 0));
+    float3 eye = ray.origin;
+    
+    float s = 0;
+    while (s < steps)
+    {
+        d = DE(ray.origin);
+        
+        // Far clipping plane equivalent (Ray went too far)
+        if (length(eye - ray.origin) > 100.0)
+        {
+            s = steps;
+            break;
+        }
+        
+        // Surface hit detection
+        if (d.n < epsilon)
+            break;
+            
+        ray.origin += ray.direction * d.n;
+        s++;
+    }
+    
+    // Return a normalized hit ratio (1.0 = hit instantly, 0.0 = didn't hit) and the orbit trap color
+    return DataConstr(abs(1.0 - (s / steps)), d.p);
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    // GPU freeze prevention: Bounds checking against screen dimensions
+    if ((int) id.x >= _Width || (int) id.y >= _Height)
+        return;
+        
+    // Convert pixel coordinates to Normalized Device Coordinates (NDC: -1.0 to 1.0)
+    float2 uv = float2(id.xy) / float2((float) _Width, (float) _Height) * 2.0 - 1.0;
+    
+    Ray ray = CreateCameraRay(uv);
+    Data res = March(ray);
+    
+    // Calculate color by blending user-defined color with the algorithmic orbit trap color
+    float3 finalColor = (Color / 255.0) * Mix + normalize(abs(res.p)) * (1.0 - Mix);
+    
+    // Only apply the color if the ray actually hit an object
+    // This prevents the background/skybox from being overwritten
+    if (res.n > 0.0)
+    {
+        Texture[id.xy] = Source[id.xy] + pow(res.n, 2.0) * float4(finalColor, 1.0);
+    }
+    else
+    {
+        // Render the source camera texture for the background if nothing was hit
+        Texture[id.xy] = Source[id.xy];
+    }
+}

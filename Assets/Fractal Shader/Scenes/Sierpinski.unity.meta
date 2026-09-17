@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: dbd7e938682107847aaee0ee4bdbdf77
+DefaultImporter:
+  externalObjects: {}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scenes/Sierpinski.unity
+  uploadId: 905742

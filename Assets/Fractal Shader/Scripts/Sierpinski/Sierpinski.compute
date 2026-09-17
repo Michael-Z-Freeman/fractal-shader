@@ -1,0 +1,65 @@
+﻿#pragma kernel CSMain
+
+// Textures
+RWTexture2D<float4> Texture;
+Texture2D<float4> Source;
+
+// Fractal Parameters (Mapped from C#)
+float _Division;
+int _Iterations;
+float _Position;
+float _HoleSize;
+float4 _FractalColor;
+
+// Metadata
+uint _Width;
+uint _Height;
+
+/// <summary>
+/// Recursive spatial folding to determine if a point is part of the fractal set.
+/// </summary>
+bool IsInFractal(float x, float y)
+{
+    for (int i = 0; i < _Iterations; i++)
+    {
+        x *= _Division;
+        y *= _Division;
+        
+        // Check if the current coordinate falls into a 'cutout' zone
+        if (abs(fmod(x, _Division) - _Position) < _HoleSize &&
+            abs(fmod(y, _Division) - _Position) < _HoleSize)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    // Bounds check
+    if (id.x >= _Width || id.y >= _Height)
+        return;
+
+    // Default to background source
+    Texture[id.xy] = Source[id.xy];
+    
+    // Normalize coordinates and maintain aspect ratio
+    float minDimension = min((float) _Width, (float) _Height);
+    float offsetX = ((float) _Width - minDimension) * 0.5;
+    float offsetY = ((float) _Height - minDimension) * 0.5;
+    float scale = 1.0 / minDimension;
+    
+    float x = (id.x - offsetX) * scale;
+    float y = (id.y - offsetY) * scale;
+    
+    // Render only within the [0, 1] unit square
+    if (x > 0.0 && x < 1.0 && y > 0.0 && y < 1.0)
+    {
+        if (IsInFractal(x, y))
+        {
+            Texture[id.xy] = _FractalColor;
+        }
+    }
+}

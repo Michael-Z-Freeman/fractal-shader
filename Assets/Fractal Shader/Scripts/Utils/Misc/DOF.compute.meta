@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: dff2e43a0d6503646801503442117e2c
+ComputeShaderImporter:
+  externalObjects: {}
+  currentAPIMask: 4
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 368112
+  packageName: Fractal Shader (URP)
+  packageVersion: 1.0
+  assetPath: Assets/Fractal Shader/Scripts/Utils/Misc/DOF.compute
+  uploadId: 905742

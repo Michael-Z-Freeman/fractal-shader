@@ -1,0 +1,93 @@
+﻿#pragma kernel CSMain
+
+// Core Render Textures
+RWTexture2D<float4> Texture;
+Texture2D<float4> Source;
+
+// Fractal Parameters
+int Julia; // Toggle: 0 for Mandelbrot, 1 for Julia
+float4 Area; // X, Y position and Width, Height scale
+float2 C; // Constant for Julia set iterations
+int Iterations; // Maximum escape time iterations
+RWStructuredBuffer<float3> Colors; // Color palette buffer
+int ColorCount;
+
+// --- CUSTOM SHADER VARIABLES ---
+float4 BackgroundColor;
+float Brightness;
+
+// Screen Dimensions
+uint _Width;
+uint _Height;
+
+static const float PI = 3.14159265;
+
+// Performs complex number multiplication: (a + bi) * (c + di)
+float2 Multiply(float2 a, float2 b)
+{
+    float2 x;
+    x[0] = (a[0] * b[0]) - (a[1] * b[1]);
+    x[1] = (a[0] * b[1]) + (a[1] * b[0]);
+    return x;
+}
+
+// Determines the "escape time" for a given point in the complex plane
+int Iterate(float2 c)
+{
+    // For Julia, z starts as the coordinate; for Mandelbrot, z starts at (0,0)
+    float2 z = (Julia == 1) ? c : float2(0, 0);
+    
+    for (int i = 0; i < Iterations; i++)
+    {
+        // Standard fractal formula: z = z^2 + c
+        z = Multiply(z, z) + ((Julia == 1) ? C : c);
+        
+        // If the magnitude exceeds 2, the point escapes to infinity
+        if (length(z) > 2.0)
+        {
+            return i;
+        }
+    }
+    return Iterations;
+}
+
+// Maps pixel coordinates to the specified Area in the complex plane
+float2 ConvertCoords(float2 c)
+{
+    float w = (float) _Width;
+    float h = (float) _Height;
+    float2 z;
+    z[0] = c[0] / (w / Area[2]) + Area[0];
+    z[1] = c[1] / (h / Area[3]) - Area[1];
+    return z;
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    // GPU freeze prevention: Bounds checking against screen dimensions
+    if (id.x >= _Width || id.y >= _Height)
+        return;
+
+    // Calculate iteration count for the current pixel
+    float i = Iterate(ConvertCoords(float2(id.x, id.y)));
+    
+    // If the point escaped (Outside the fractal set)
+    if (i != Iterations)
+    {
+        // Calculate a normalized value for color lookup using a cosine wave for smoothness
+        float a = (cos(i / 10.0 + PI) + 1.0) / 2.0;
+        
+        int colorIndex = (int)(a * max(ColorCount - 1, 0));
+        
+        // Apply color from palette multiplied by the Brightness setting
+        float3 clr = Colors[colorIndex] * Brightness;
+        Texture[id.xy] = float4(clr, 1.0);
+    }
+    else
+    {
+        // Inside the fractal set (Infinity)
+        // Render the BackgroundColor to clear artifacts and provide a clean look
+        Texture[id.xy] = BackgroundColor;
+    }
+}

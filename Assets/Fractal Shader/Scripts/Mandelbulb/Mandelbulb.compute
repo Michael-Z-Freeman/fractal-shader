@@ -1,0 +1,207 @@
+﻿#pragma kernel CSMain
+
+// Core Render Textures
+RWTexture2D<float4> Texture;
+Texture2D<float4> Source;
+
+// Camera Matrices
+float4x4 CamToWorld;
+float4x4 CamInverseProjection;
+
+// Mandelbulb Core Parameters
+float Power;
+int Iterations;
+float Julia; // 1.0 for Julia set mode, 0.0 for standard Mandelbulb
+float3 C; // Constant for Julia set mode
+float Mix; // Blend ratio for orbit trap coloring
+int Alt; // Alternative formula toggle (1 for Sin-based, 0 for Cos-based)
+
+// --- CUSTOM SHADER VARIABLES ---
+float4 FractalColor;
+float4 BackgroundColor;
+float EmissionStrength;
+float FogDensity;
+float MaxDistance;
+
+// Screen Dimensions
+uint _Width;
+uint _Height;
+
+// Raymarching Constants
+static const int steps = 500;
+static const float epsilon = 0.0001;
+
+struct Ray
+{
+    float3 origin;
+    float3 direction;
+};
+
+// Custom struct to pass DE (Distance Estimation) data
+struct Data
+{
+    float2 a; // x: distance, y: iteration-based coloring
+    float3 b; // orbit trap vector
+};
+
+// Result structure for the Raymarching loop
+struct MarchResult
+{
+    bool hit;
+    float2 a; // Step/iteration data
+    float3 b; // Orbit trap color data
+    float totalDist; // Total traveled distance (used for Fog calculations)
+};
+
+Data DataConstr(float2 a, float3 b)
+{
+    Data data;
+    data.a = a;
+    data.b = b;
+    return data;
+}
+
+Ray CreateRay(float3 origin, float3 direction)
+{
+    Ray ray;
+    ray.origin = origin;
+    ray.direction = direction;
+    return ray;
+}
+
+// Generates a ray from camera position through the pixel UV
+Ray CreateCameraRay(float2 uv)
+{
+    float3 origin = mul(CamToWorld, float4(0, 0, 0, 1)).xyz;
+    float3 direction = mul(CamInverseProjection, float4(uv, 0, 1)).xyz;
+    direction = mul(CamToWorld, float4(direction, 0)).xyz;
+    direction = normalize(direction);
+    return CreateRay(origin, direction);
+}
+
+// Orbit Trapping: Tracks the closest point to origin during iterations for coloring
+void Trap(float3 z, inout float3 trap)
+{
+    if (length(z) < length(trap))
+        trap = z;
+}
+
+// Mandelbulb Distance Estimator (DE)
+Data DE(float3 p)
+{
+    float3 z = p;
+    float3 trap = p;
+    float r, dr = 1.0;
+    int i;
+
+    for (i = 0; i < Iterations; i++)
+    {
+        r = length(z);
+        if (r > 3.0) // Escape radius
+            break;
+        
+        // Spherical coordinate conversion
+        // "Alt" mode toggles between standard and alternative bulbs
+        float theta = (Alt == 1) ? asin(z.z / r) : acos(z.z / r);
+        float phi = atan2(z.y, z.x);
+        
+        // Distance derivative for correct DE scaling
+        dr = pow(r, Power - 1.0) * Power * dr + 1.0;
+
+        // Iterative scaling and rotation
+        float zr = pow(r, Power);
+        theta = theta * Power;
+        phi = phi * Power;
+        
+        // Convert back to Cartesian
+        if (Alt == 1)
+            z = zr * float3(cos(theta) * cos(phi), cos(theta) * sin(phi), sin(theta));
+        else
+            z = zr * float3(sin(theta) * cos(phi), sin(theta) * sin(phi), cos(theta));
+        
+        // Julia set logic: add constant C or the initial position p
+        z += Julia * C + (1.0 - Julia) * p;
+        Trap(z, trap);
+    }
+
+    trap = abs(trap);
+    float dst = 0.1 * log(r) * r / dr;
+    return DataConstr(float2(dst, sin((float) i)), trap);
+}
+
+// Primary Raymarching Loop
+MarchResult March(Ray ray)
+{
+    MarchResult res;
+    res.hit = false;
+    float traveledDist = 0.0;
+    Data d = DataConstr(float2(0, 0), float3(0, 0, 0));
+    float3 eye = ray.origin;
+    
+    int s = 0;
+    while (s < steps)
+    {
+        float3 p = eye + ray.direction * traveledDist;
+        d = DE(p);
+        
+        // Surface hit detection
+        if (d.a.x < epsilon)
+        {
+            res.hit = true;
+            break;
+        }
+        
+        traveledDist += d.a.x;
+        
+        // Stop if maximum view distance is reached
+        if (traveledDist > MaxDistance)
+            break;
+        s++;
+    }
+
+    // Pack results for the main function
+    res.a = float2(1.0 - (float) s / (float) steps, d.a.y);
+    res.b = d.b;
+    res.totalDist = traveledDist;
+    return res;
+}
+
+[numthreads(8, 8, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    // Bounds check to prevent GPU hangs
+    if (id.x >= _Width || id.y >= _Height)
+        return;
+
+    // Normalize coordinates
+    float2 uv = float2(id.xy) / float2((float) _Width, (float) _Height) * 2.0 - 1.0;
+    
+    Ray ray = CreateCameraRay(uv);
+    ray.origin += ray.direction * 0.1; // Slight offset to avoid self-intersection
+    
+    MarchResult res = March(ray);
+    
+    if (res.hit)
+    {
+        // Calculate orbit trap color blended with the Inspector-defined FractalColor
+        float3 trapColor = float3(res.b) * Mix + FractalColor.rgb * (1.0 - Mix);
+        
+        // Final color shading including basic fake Ambient Occlusion (AO)
+        float3 finalColor = float3(1.0, 1.0, 1.0) * (res.a.x + 0.1) + trapColor * res.a.y;
+        
+        // Apply Emission multiplier
+        finalColor *= EmissionStrength;
+        
+        // Smooth Fog blending to prevent harsh edges and ghosting artifacts
+        float fog = saturate(res.totalDist / FogDensity);
+        float3 foggedColor = lerp(finalColor, BackgroundColor.rgb, fog);
+        
+        Texture[id.xy] = float4(foggedColor, 1.0);
+    }
+    else
+    {
+        // If the ray hits nothing, render a clean BackgroundColor instead of using the Source texture
+        // This clears trails and prevents frame ghosting.
+        Texture[id.xy] = BackgroundColor;
+    }
+}
