@@ -6,7 +6,31 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
-    path: Assets/Scenes/SampleScene.unity
-    guid: 99c9720ab356a0642a771bea13969a05
+    path: Assets/Fractal Shader/Scenes/FractalMenu.unity
+    guid: 7e901b58cbcb349aaae9fe7f32f77b0f
+  - enabled: 1
+    path: Assets/Fractal Shader/Scenes/FRAX.unity
+    guid: 11aa6c0b416ace44b93b32ad09d4163a
+  - enabled: 1
+    path: Assets/Fractal Shader/Scenes/InfiniteSpheres.unity
+    guid: 921e01f25e110e7488217b0daaa6414e
+  - enabled: 1
+    path: Assets/Fractal Shader/Scenes/Mandelbox.unity
+    guid: acc60374f1d4bf440ab2c63c8cc0ce55
+  - enabled: 1
+    path: Assets/Fractal Shader/Scenes/Mandelbrot.unity
+    guid: e50eaccf95d458e41b955db892f214a2
+  - enabled: 1
+    path: Assets/Fractal Shader/Scenes/Mandelbulb.unity
+    guid: 452249e557a60c343b157f9dd74c7dec
+  - enabled: 1
+    path: Assets/Fractal Shader/Scenes/MengerSponge.unity
+    guid: c4a3be4271829e14fa075f54d785c185
+  - enabled: 1
+    path: Assets/Fractal Shader/Scenes/OctahedronFlake.unity
+    guid: ab8cc282b4f3dfe4db2fb17f4e5ad301
+  - enabled: 1
+    path: Assets/Fractal Shader/Scenes/Sierpinski.unity
+    guid: dbd7e938682107847aaee0ee4bdbdf77
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}

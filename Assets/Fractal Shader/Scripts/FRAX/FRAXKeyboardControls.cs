@@ -38,12 +38,14 @@ namespace FractalShader
             if (helpOverlay != null)
                 return;
 
-            Canvas canvas = FindFirstObjectByType<Canvas>();
-            if (canvas == null)
-            {
-                Debug.LogWarning("FRAX keyboard help could not find a Canvas.", this);
-                return;
-            }
+            // Keep this help UI independent of the imported Canvas, which contains
+            // legacy TextMeshPro controls and would otherwise require TMP Essentials.
+            GameObject canvasObject = new GameObject("FRAX Keyboard Help Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            Canvas canvas = canvasObject.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
 
             helpOverlay = new GameObject("Keyboard Help", typeof(RectTransform), typeof(Image));
             helpOverlay.transform.SetParent(canvas.transform, false);

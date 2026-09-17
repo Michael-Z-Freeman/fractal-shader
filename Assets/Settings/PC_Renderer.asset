@@ -1,5 +1,35 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8476151231170878076
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 963b5cd62cf6bf14fb03e0faeb40b762, type: 3}
+  m_Name: OctahedronFlake Feature
+  m_EditorClassIdentifier: Assembly-CSharp::FractalShader.OctahedronFlakeFeature
+  m_Active: 1
+  settings:
+    computeShader: {fileID: 7200000, guid: adbbde9186d5a224191e42cfc565ebe0, type: 3}
+--- !u!114 &-8033333450759295199
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 90a761d80ffff5340abbc43c8266aacc, type: 3}
+  m_Name: Mandelbulb Feature
+  m_EditorClassIdentifier: Assembly-CSharp::FractalShader.MandelbulbFeature
+  m_Active: 1
+  settings:
+    computeShader: {fileID: 7200000, guid: a9bfafc7c8f33a143a64ce534becd0ea, type: 3}
 --- !u!114 &-2496205007305709287
 MonoBehaviour:
   m_ObjectHideFlags: 1
@@ -42,6 +72,13 @@ MonoBehaviour:
   m_RendererFeatures:
   - {fileID: 7833122117494664109}
   - {fileID: -2496205007305709287}
+  - {fileID: 5990723808604135150}
+  - {fileID: 6523507402857864563}
+  - {fileID: 3163136094046282889}
+  - {fileID: -8033333450759295199}
+  - {fileID: 6906636742969026376}
+  - {fileID: -8476151231170878076}
+  - {fileID: 363172466455545426}
   m_RendererFeatureMap: ad6b866f10d7b46cl
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}
@@ -71,6 +108,81 @@ MonoBehaviour:
   m_AccurateGbufferNormals: 0
   m_IntermediateTextureMode: 0
   m_TileOnlyMode: 0
+--- !u!114 &363172466455545426
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a6dba7a36a975d44d8175208fea1733f, type: 3}
+  m_Name: Sierpinski Feature
+  m_EditorClassIdentifier: Assembly-CSharp::FractalShader.SierpinskiFeature
+  m_Active: 1
+  settings:
+    computeShader: {fileID: 7200000, guid: 4c5189c584d621d479b84df659dca40c, type: 3}
+--- !u!114 &3163136094046282889
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 260e431ea9abe1547ad8e548a813bcad, type: 3}
+  m_Name: Mandelbrot Feature
+  m_EditorClassIdentifier: Assembly-CSharp::FractalShader.MandelbrotFeature
+  m_Active: 1
+  settings:
+    computeShader: {fileID: 7200000, guid: 7fbbd243a70ca3a4ab248fc6b0a5d8f5, type: 3}
+--- !u!114 &5990723808604135150
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cf63e2a64f7d924e8dfe103703c0164, type: 3}
+  m_Name: InfiniteSpheres Feature
+  m_EditorClassIdentifier: Assembly-CSharp::FractalShader.InfiniteSpheresFeature
+  m_Active: 1
+  settings:
+    computeShader: {fileID: 7200000, guid: 1d0da37f39412934fb6965797e1045c6, type: 3}
+--- !u!114 &6523507402857864563
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bc6f663fca857614dac1ec6c6adeded8, type: 3}
+  m_Name: Mandelbox Feature
+  m_EditorClassIdentifier: Assembly-CSharp::FractalShader.MandelboxFeature
+  m_Active: 1
+  settings:
+    computeShader: {fileID: 7200000, guid: 08444b542cd1a73499118efa98cf7f74, type: 3}
+--- !u!114 &6906636742969026376
+MonoBehaviour:
+  m_ObjectHideFlags: 1
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 673298b8ce0e65c41abd122cd1809efe, type: 3}
+  m_Name: MengerSponge Feature
+  m_EditorClassIdentifier: Assembly-CSharp::FractalShader.MengerSpongeFeature
+  m_Active: 1
+  settings:
+    computeShader: {fileID: 7200000, guid: 48cf9e093e9510f49934b23cd58f1670, type: 3}
 --- !u!114 &7833122117494664109
 MonoBehaviour:
   m_ObjectHideFlags: 1
