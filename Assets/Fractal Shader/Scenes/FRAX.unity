@@ -554,6 +554,7 @@ GameObject:
   - component: {fileID: 1766869494}
   - component: {fileID: 1319801038049152217}
   - component: {fileID: 1319801038049152218}
+  - component: {fileID: 1319801038049152219}
   m_Layer: 0
   m_Name: Camera
   m_TagString: Untagged
@@ -790,7 +791,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!224 &2087809624
 RectTransform:
   m_ObjectHideFlags: 0
@@ -863,7 +864,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1766869492}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7aabdeb0fa24475438165da15f829dc9, type: 3}
   m_Name: 
@@ -871,6 +872,20 @@ MonoBehaviour:
   moveSpeed: 10
   sprintMultiplier: 3
   mouseSensitivity: 2
+--- !u!114 &1319801038049152219
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1766869492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: caa4a02ba3ab640afbe1fbe7593d2c8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FractalShader.FRAXKeyboardControls
+  helpOverlay: {fileID: 0}
+  curveChangePerSecond: 0.5
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
