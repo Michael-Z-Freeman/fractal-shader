@@ -50,7 +50,11 @@ namespace FractalShader
             (keyboard.rightArrowKey.isPressed ? 1f : 0f) - (keyboard.leftArrowKey.isPressed ? 1f : 0f);
 
         private static float BracketDirection(Keyboard keyboard) =>
-            (keyboard.rightBracketKey.wasPressedThisFrame ? 1f : 0f) - (keyboard.leftBracketKey.wasPressedThisFrame ? 1f : 0f);
+            // Support both the original [ / ] pair and the more natural / key the
+            // launcher instructions previously implied. On compact Mac layouts the
+            // bracket keys are not always convenient, so comma/period are aliases.
+            ((keyboard.rightBracketKey.wasPressedThisFrame || keyboard.slashKey.wasPressedThisFrame || keyboard.periodKey.wasPressedThisFrame) ? 1f : 0f) -
+            ((keyboard.leftBracketKey.wasPressedThisFrame || keyboard.commaKey.wasPressedThisFrame) ? 1f : 0f);
 
         private static void UpdateMandelbox(Keyboard keyboard, Mandelbox fractal)
         {
@@ -172,12 +176,12 @@ namespace FractalShader
         private string HelpText()
         {
             string common = "\n\nM  Return to main menu\nH  Hide / show this help";
-            if (app is Mandelbox) return "<b>MANDELBOX CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Scale\n[ / ]  Iterations\nJ  Toggle Julia mode\nK  Toggle colour mix" + common;
+            if (app is Mandelbox) return "<b>MANDELBOX CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Scale\n[ / ] or , / .  Iterations\nJ  Toggle Julia mode\nK  Toggle colour mix" + common;
             if (app is Mandelbrot) return "<b>MANDELBROT CONTROLS</b>\n\nMouse wheel  Zoom\nMouse drag  Pan\nRight click  Julia at cursor\nLeft / Right Arrow  Iterations\nJ  Toggle Julia mode" + common;
-            if (app is Mandelbulb) return "<b>MANDELBULB CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Power\n[ / ]  Iterations\nJ  Toggle Julia mode\nA  Toggle alternate formula\nK  Toggle colour mix" + common;
-            if (app is MengerSponge) return "<b>MENGER SPONGE CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Size\n[ / ]  Iterations\nX  Toggle cut\nG  Toggle edge size\nC  Toggle Cantor mode" + common;
-            if (app is OctahedronFlake) return "<b>OCTAHEDRON FLAKE CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Size\n[ / ]  Iterations\nZ / X  Scale per iteration" + common;
-            return "<b>SIERPINSKI CONTROLS</b>\n\nLeft / Right Arrow  Division factor\n[ / ]  Iterations\nZ / X  Cutout position\nC / V  Hole size" + common;
+            if (app is Mandelbulb) return "<b>MANDELBULB CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Power\n[ / ] or , / .  Iterations\nJ  Toggle Julia mode\nA  Toggle alternate formula\nK  Toggle colour mix" + common;
+            if (app is MengerSponge) return "<b>MENGER SPONGE CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Size\n[ / ] or , / .  Iterations\nX  Toggle cut\nG  Toggle edge size\nC  Toggle Cantor mode" + common;
+            if (app is OctahedronFlake) return "<b>OCTAHEDRON FLAKE CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Size\n[ / ] or , / .  Iterations\nZ / X  Scale per iteration" + common;
+            return "<b>SIERPINSKI CONTROLS</b>\n\nLeft / Right Arrow  Division factor\n[ / ] or , / .  Iterations\nZ / X  Cutout position\nC / V  Hole size" + common;
         }
     }
 }

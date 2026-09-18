@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace FractalShader
@@ -80,7 +81,7 @@ namespace FractalShader
             label.verticalOverflow = VerticalWrapMode.Overflow;
             label.color = Color.white;
             label.raycastTarget = false;
-            label.text = "<b>FRAX CONTROLS</b>\n\nW A S D  Move\nMouse  Look\nShift  Fly faster\nQ / E / Space  Down / Up\nLeft / Right Arrow  Curve Space\nEsc  Release mouse\nH  Hide / show this help";
+            label.text = "<b>FRAX CONTROLS</b>\n\nW A S D  Move\nMouse  Look\nShift  Fly faster\nQ / E / Space  Down / Up\nLeft / Right Arrow  Curve Space\nM  Return to main menu\nEsc  Release mouse\nH  Hide / show this help";
         }
 
         private void Update()
@@ -95,6 +96,12 @@ namespace FractalShader
 
             if (keyboard.hKey.wasPressedThisFrame && helpOverlay != null)
                 helpOverlay.SetActive(!helpOverlay.activeSelf);
+
+            if (keyboard.mKey.wasPressedThisFrame)
+            {
+                SceneManager.LoadScene("FractalMenu");
+                return;
+            }
 
             float direction = (keyboard.rightArrowKey.isPressed ? 1f : 0f) -
                               (keyboard.leftArrowKey.isPressed ? 1f : 0f);

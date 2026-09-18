@@ -13,7 +13,10 @@ namespace FractalShader
 
 		// Core Fractal Fields
 		// Kept private to avoid Inspector clutter as they are managed via the UI system.
-		private int iterations;
+		// A serialized private field is 0 in this imported scene because the former
+		// slider supplied its initial value at runtime. Zero iterations renders only
+		// the base cube, so establish a useful fractal default independently of UI.
+		private int iterations = 3;
 		private float size = 1f;
 		private float edge = 1f;
 		private float cut;

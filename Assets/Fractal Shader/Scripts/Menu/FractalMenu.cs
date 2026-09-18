@@ -32,7 +32,18 @@ namespace FractalShader
 
         private void Awake()
         {
+            // Demo scenes can return here while their fly/orbit camera still owns a
+            // locked cursor. A locked cursor cannot reliably drive menu pointer clicks.
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
             BuildInterface();
+        }
+
+        private void OnEnable()
+        {
+            // Also restore this state when the menu scene is reactivated.
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
         }
 
         private void Update()
@@ -69,11 +80,7 @@ namespace FractalShader
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1920f, 1080f);
 
-            if (FindFirstObjectByType<EventSystem>() == null)
-            {
-                GameObject eventSystem = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
-                eventSystem.transform.SetParent(transform, false);
-            }
+            EnsureEventSystem();
 
             Image background = CreateImage(canvasObject.transform, "Background", new Color(0.015f, 0.02f, 0.05f, 1f));
             Stretch(background.rectTransform, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -122,6 +129,23 @@ namespace FractalShader
         {
             if (index >= 0 && index < ScenePaths.Length)
                 SceneManager.LoadScene(ScenePaths[index]);
+        }
+
+        private void EnsureEventSystem()
+        {
+            EventSystem eventSystem = FindFirstObjectByType<EventSystem>();
+            if (eventSystem == null)
+            {
+                GameObject eventSystemObject = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
+                eventSystem = eventSystemObject.GetComponent<EventSystem>();
+                eventSystemObject.transform.SetParent(transform, false);
+            }
+            else if (eventSystem.GetComponent<InputSystemUIInputModule>() == null)
+            {
+                eventSystem.gameObject.AddComponent<InputSystemUIInputModule>();
+            }
+
+            eventSystem.SetSelectedGameObject(null);
         }
 
         private static Image CreateImage(Transform parent, string name, Color color)
