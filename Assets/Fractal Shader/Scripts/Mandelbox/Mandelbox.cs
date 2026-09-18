@@ -18,6 +18,19 @@ namespace FractalShader
 		[Tooltip("Detail level of the fractal (Higher = more detail, lower FPS).")]
 		[Range(1, 50)] public int iterations = 20;
 
+		[Header("--- LIVE PERFORMANCE ---")]
+		[Tooltip("Stops fractal recursion once its next detail is below a pixel at the current ray distance.")]
+		public bool pixelFootprintCulling = true;
+
+		[Tooltip("Minimum recursion retained by pixel-footprint culling, preserving the main Mandelbox form.")]
+		[Range(1, 24)] public int minimumVisibleIterations = 10;
+
+		[Tooltip("Alternates only the finest detail between pixel groups each frame. This is deliberately lively and is intended for VJ use.")]
+		public bool vjInterleavedDetail = true;
+
+		[Tooltip("Iterations at or below this are rendered for every pixel; only finer detail is interleaved.")]
+		[Range(1, 32)] public int stableIterations = 16;
+
 		[Tooltip("Toggle Julia set mode. Uses the 'C' vector instead of the spatial position.")]
 		public bool julia;
 

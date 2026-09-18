@@ -66,6 +66,11 @@ namespace FractalShader
 			private static readonly int CId = Shader.PropertyToID("C");
 			private static readonly int MixId = Shader.PropertyToID("Mix");
 			private static readonly int ColorId = Shader.PropertyToID("Color");
+			private static readonly int PixelFootprintCullingId = Shader.PropertyToID("PixelFootprintCulling");
+			private static readonly int MinimumVisibleIterationsId = Shader.PropertyToID("MinimumVisibleIterations");
+			private static readonly int VjInterleavedDetailId = Shader.PropertyToID("VJInterleavedDetail");
+			private static readonly int StableIterationsId = Shader.PropertyToID("StableIterations");
+			private static readonly int FrameIndexId = Shader.PropertyToID("FrameIndex");
 
 			private static readonly int WidthId = Shader.PropertyToID("_Width");
 			private static readonly int HeightId = Shader.PropertyToID("_Height");
@@ -93,6 +98,11 @@ namespace FractalShader
 					cmd.SetComputeVectorParam(settings.computeShader, CId, fractal.c);
 					cmd.SetComputeFloatParam(settings.computeShader, MixId, fractal.mix);
 					cmd.SetComputeVectorParam(settings.computeShader, ColorId, fractal.boxColor);
+					cmd.SetComputeIntParam(settings.computeShader, PixelFootprintCullingId, fractal.pixelFootprintCulling ? 1 : 0);
+					cmd.SetComputeIntParam(settings.computeShader, MinimumVisibleIterationsId, fractal.minimumVisibleIterations);
+					cmd.SetComputeIntParam(settings.computeShader, VjInterleavedDetailId, fractal.vjInterleavedDetail ? 1 : 0);
+					cmd.SetComputeIntParam(settings.computeShader, StableIterationsId, fractal.stableIterations);
+					cmd.SetComputeIntParam(settings.computeShader, FrameIndexId, Time.frameCount);
 					cmd.SetComputeIntParam(settings.computeShader, WidthId, width);
 					cmd.SetComputeIntParam(settings.computeShader, HeightId, height);
 				});

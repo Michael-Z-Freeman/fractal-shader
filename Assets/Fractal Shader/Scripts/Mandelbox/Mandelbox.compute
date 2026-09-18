@@ -18,13 +18,22 @@ float3 C;
 float Mix;
 float3 Color;
 
+// Live-VJ shortcuts. These retain the broad shape, but stop spending work on
+// recursion that has fallen below a pixel or is being temporally interleaved.
+int PixelFootprintCulling;
+int MinimumVisibleIterations;
+int VJInterleavedDetail;
+int StableIterations;
+int FrameIndex;
+
 // Screen Dimensions
 int _Width;
 int _Height;
 
 // Raymarching Constants
 static const int steps = 400;
-static const float epsilon = 0.0001;
+static const float minimumEpsilon = 0.0001;
+static const float bailoutRadiusSquared = 256.0;
 
 // Base structure for a ray in 3D space
 struct Ray
@@ -53,11 +62,8 @@ Data DataConstr(float n, float3 p)
 // This creates the spherical holes and curved structures in the Mandelbox.
 void SphereFold(inout float3 z, inout float dz)
 {
-    float fixedRadius = 1.0;
-    float minRadius = 0.5;
-    
-    float fixedRadius2 = pow(fixedRadius, 2.0);
-    float minRadius2 = pow(minRadius, 2.0);
+    const float fixedRadius2 = 1.0;
+    const float minRadius2 = 0.25;
     
     float r2 = dot(z, z);
     
@@ -89,19 +95,36 @@ void BoxFold(inout float3 z)
 // Orbit Trapping: Used for coloring the fractal based on its trajectory
 void Trap(float3 z, inout float3 trap)
 {
-    if (length(z) < length(trap))
+    // Orbit colour does not need square roots in the hottest loop.
+    if (dot(z, z) < dot(trap, trap))
         trap = z;
 }
 
 // Distance Estimator (DE) for the Mandelbox Fractal
-Data DE(float3 p)
+Data DE(float3 p, float pixelFootprint, uint2 pixel)
 {
     float3 z = p;
     float3 trap = p;
     float dr = 1.0;
     
+    int visibleIterationFloor = min(Iterations, max(1, MinimumVisibleIterations));
+    int stableIterationLimit = min(Iterations, max(visibleIterationFloor, StableIterations));
+    float inverseScale = rcp(max(abs(Scale), 1.01));
+    float detailSize = 2.0;
+
     for (int i = 0; i < Iterations; i++)
     {
+        // Further structure is sub-pixel at this depth, so it cannot alter the
+        // displayed image enough to justify another full Mandelbox fold.
+        if (PixelFootprintCulling == 1 && i >= visibleIterationFloor && detailSize < pixelFootprint)
+            break;
+
+        // A half-rate fine-detail pass is intentionally temporal/organic: all
+        // silhouette-defining iterations remain intact, while late micro-detail
+        // alternates across a 2x2 pixel pattern for live visuals.
+        if (VJInterleavedDetail == 1 && i >= stableIterationLimit && (((pixel.x + pixel.y + FrameIndex) & 1u) != 0u))
+            break;
+
         // The core Mandelbox formula: BoxFold -> SphereFold -> Scale & Translate
         BoxFold(z);
         SphereFold(z, dr);
@@ -111,6 +134,13 @@ Data DE(float3 p)
         dr = dr * abs(Scale) + 1.0;
         
         Trap(z, trap);
+
+        // Mandelbox orbits beyond this radius are visually stable enough for a
+        // VJ renderer; bailing avoids useless late folds in empty space.
+        if (dot(z, z) > bailoutRadiusSquared)
+            break;
+
+        detailSize *= inverseScale;
     }
     
     // Return distance to the surface, and the orbit trap vector for coloring
@@ -136,7 +166,7 @@ Ray CreateCameraRay(float2 uv)
 }
 
 // Core Raymarching loop
-Data March(Ray ray)
+Data March(Ray ray, uint2 pixel)
 {
     Data d = DataConstr(0, float3(0, 0, 0));
     float3 eye = ray.origin;
@@ -144,17 +174,21 @@ Data March(Ray ray)
     float s = 0;
     while (s < steps)
     {
-        d = DE(ray.origin);
+        float travelled = length(eye - ray.origin);
+        // One pixel widens with distance. Matching convergence to that footprint
+        // removes imperceptible final march steps without softening near geometry.
+        float pixelFootprint = max(minimumEpsilon, travelled * (2.0 / (float)_Height));
+        d = DE(ray.origin, pixelFootprint, pixel);
         
         // Far clipping plane equivalent (Ray went too far)
-        if (length(eye - ray.origin) > 100.0)
+        if (travelled > 100.0)
         {
             s = steps;
             break;
         }
         
         // Surface hit detection
-        if (d.n < epsilon)
+        if (d.n < pixelFootprint)
             break;
             
         ray.origin += ray.direction * d.n;
@@ -176,7 +210,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     float2 uv = float2(id.xy) / float2((float) _Width, (float) _Height) * 2.0 - 1.0;
     
     Ray ray = CreateCameraRay(uv);
-    Data res = March(ray);
+    Data res = March(ray, id.xy);
     
     // Calculate color by blending user-defined color with the algorithmic orbit trap color
     float3 finalColor = (Color / 255.0) * Mix + normalize(abs(res.p)) * (1.0 - Mix);

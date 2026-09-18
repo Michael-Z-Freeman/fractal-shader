@@ -914,6 +914,10 @@ MonoBehaviour:
   controlsHelper: {fileID: 0}
   scale: 2
   iterations: 20
+  pixelFootprintCulling: 1
+  minimumVisibleIterations: 10
+  vjInterleavedDetail: 1
+  stableIterations: 16
   julia: 0
   c: {x: 0, y: 0, z: 0}
   boxColor: {r: 0.04, g: 0.59, b: 0.78, a: 1}
