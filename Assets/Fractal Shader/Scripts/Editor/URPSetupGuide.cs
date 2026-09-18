@@ -1,46 +1,11 @@
 using UnityEngine;
 using UnityEditor;
-using UnityEditor.SceneManagement;
-using UnityEngine.SceneManagement;
 
 namespace FractalShader
 {
-    // [InitializeOnLoad] ensures the static constructor runs when the Unity Editor loads or recompiles
-    [InitializeOnLoad]
     public class URPSetupGuide : EditorWindow
     {
-        // List of scenes that should trigger the popup window
-        private static readonly string[] targetScenes = {
-            "FRAX",
-            "InfiniteSpheres",
-            "Mandelbox",
-            "Mandelbrot",
-            "Mandelbulb",
-            "MengerSponge",
-            "OctahedronFlake",
-            "Sierpinski"
-        };
-
-        // Static constructor subscribes to the scene opened event
-        static URPSetupGuide()
-        {
-            EditorSceneManager.sceneOpened += OnSceneOpened;
-        }
-
-        // Called automatically every time a new scene is opened in the Editor
-        private static void OnSceneOpened(Scene scene, OpenSceneMode mode)
-        {
-            foreach (string targetScene in targetScenes)
-            {
-                if (scene.name == targetScene)
-                {
-                    ShowWindow();
-                    break; // Stop checking once we find a match
-                }
-            }
-        }
-
-        // Adds a button to the top menu (can still be opened manually)
+        // The guide remains available manually, but must not interrupt scene opening.
         [MenuItem("Tools/Fractal Framework/URP Setup Guide")]
         public static void ShowWindow()
         {
@@ -53,19 +18,14 @@ namespace FractalShader
             GUILayout.Label("Fractal Framework - URP Compatibility Guide", EditorStyles.boldLabel);
             EditorGUILayout.Space();
 
-            // Warning Box for Solution 1
-            EditorGUILayout.HelpBox("Render Graph Warning Solution\n\n" +
-                "The custom Renderer Features in this package (Infinite Spheres, Mandelbrot, Raymarch, etc.) " +
-                "rely on Unity's standard rendering system. To ensure they work correctly with the new 'Render Graph' system, " +
-                "you must enable Compatibility Mode.", MessageType.Warning);
+            EditorGUILayout.HelpBox("The fractal renderer features in this project are configured for Unity's Render Graph path. " +
+                "This guide no longer requires Compatibility Mode.", MessageType.Info);
 
             EditorGUILayout.Space();
 
             // Step-by-step instructions
-            GUILayout.Label("Step-by-Step Solution:", EditorStyles.boldLabel);
-            GUILayout.Label("1. Open Edit > Project Settings > Graphics from the top menu.", EditorStyles.wordWrappedLabel);
-            GUILayout.Label("2. Navigate to the URP settings.", EditorStyles.wordWrappedLabel);
-            GUILayout.Label("3. Check the 'Compatibility Mode (RenderGraph disabled)' option.", EditorStyles.wordWrappedLabel);
+            GUILayout.Label("Current setup:", EditorStyles.boldLabel);
+            GUILayout.Label("The active renderer data already contains the fractal renderer features. Open the Graphics settings only if you need to inspect the project-wide URP configuration.", EditorStyles.wordWrappedLabel);
 
             EditorGUILayout.Space();
 
@@ -78,11 +38,7 @@ namespace FractalShader
             EditorGUILayout.Space();
             EditorGUILayout.Space();
 
-            // Reminder for the Renderer Data setup
-            EditorGUILayout.HelpBox("IMPORTANT REMINDER:\n\n" +
-                "For the visual effects to render in your scene, you must select your active 'Universal Renderer Data' " +
-                "asset in the Inspector. Then, scroll down to the 'Renderer Features' list and add the " +
-                "features you want to use (e.g., Infinite Spheres Feature).", MessageType.Info);
+            EditorGUILayout.HelpBox("The fractal demo scenes use the shared PC renderer data and its configured renderer features.", MessageType.Info);
         }
     }
 }
