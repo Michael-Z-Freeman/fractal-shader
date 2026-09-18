@@ -272,6 +272,7 @@ GameObject:
   - component: {fileID: 205510137}
   - component: {fileID: 205510136}
   - component: {fileID: 205510140}
+  - component: {fileID: 205510141}
   m_Layer: 8
   m_Name: Camera
   m_TagString: Untagged
@@ -428,6 +429,19 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
+--- !u!114 &205510141
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 205510133}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d4e8ef743e0240f7b5d6c56dacfcd85, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FractalShader.OtherFractalKeyboardControls
+  helpOverlay: {fileID: 0}
 --- !u!1001 &471368916
 PrefabInstance:
   m_ObjectHideFlags: 0
