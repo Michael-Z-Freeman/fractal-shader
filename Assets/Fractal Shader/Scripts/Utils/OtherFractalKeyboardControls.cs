@@ -33,6 +33,18 @@ namespace FractalShader
         private const float HighRangeDuration = (5f - 1.5f) / FastLoopSpeed;
         private const float OneWayLoopDuration = LowRangeDuration + MiddleRangeDuration + HighRangeDuration;
 
+        // Microphone-reactive Mandelbox scale state.
+        private const int MicrophoneSampleCount = 256;
+        private const float MicrophoneCentreMin = 0.99f;
+        private const float MicrophoneCentreMax = 1.20f;
+        private const float MicrophoneNoiseFloor = 0.008f;
+        private const float MicrophoneFullScaleLevel = 0.06f;
+        private bool microphoneScaleMode;
+        private AudioClip microphoneClip;
+        private readonly float[] microphoneSamples = new float[MicrophoneSampleCount];
+        private float nextMicrophoneNudgeTime;
+        private float microphoneScaleTarget = 1f;
+
         private void Awake()
         {
             app = GetComponent<App>();
@@ -74,6 +86,11 @@ namespace FractalShader
                 helpLabel.text = HelpText();
         }
 
+        private void OnDestroy()
+        {
+            StopMicrophoneInput();
+        }
+
         private static float ArrowDirection(Keyboard keyboard) =>
             (keyboard.rightArrowKey.isPressed ? 1f : 0f) - (keyboard.leftArrowKey.isPressed ? 1f : 0f);
 
@@ -106,6 +123,23 @@ namespace FractalShader
                 }
             }
 
+            // Toggle microphone-reactive scale nudges (U key).
+            if (keyboard.uKey.wasPressedThisFrame)
+            {
+                microphoneScaleMode = !microphoneScaleMode;
+                if (microphoneScaleMode)
+                {
+                    mandelboxAutoLoop = false;
+                    microphoneScaleTarget = Mathf.Clamp(fractal.scale, MicrophoneCentreMin, MicrophoneCentreMax);
+                    nextMicrophoneNudgeTime = Time.unscaledTime;
+                    StartMicrophoneInput();
+                }
+                else
+                {
+                    StopMicrophoneInput();
+                }
+            }
+
             // Use shared targetScale on ControlsHelper so keyboard and trackpad share the same state and damping
             if (helper != null)
             {
@@ -134,7 +168,11 @@ namespace FractalShader
                     mandelboxAutoLoop = false;
                 }
 
-                if (mandelboxAutoLoop)
+                if (microphoneScaleMode)
+                {
+                    UpdateMicrophoneScale(fractal, helper);
+                }
+                else if (mandelboxAutoLoop)
                 {
                     // Advance smooth geometric ping-pong phase
                     mandelboxLoopPhase += (2f * Mathf.PI / MandelboxLoopDuration) * Time.deltaTime;
@@ -165,6 +203,60 @@ namespace FractalShader
             if (!Mathf.Approximately(iterations, 0f)) fractal.O_Iterations = Mathf.Clamp(fractal.iterations + iterations, 1, 50);
             if (keyboard.jKey.wasPressedThisFrame) fractal.O_Julia = !fractal.julia;
             if (keyboard.kKey.wasPressedThisFrame) fractal.O_Mix = fractal.mix < 0.5f ? 1f : 0f;
+        }
+
+        private void StartMicrophoneInput()
+        {
+            if (Microphone.devices.Length == 0)
+                return;
+
+            Application.RequestUserAuthorization(UserAuthorization.Microphone);
+            if (microphoneClip == null)
+                microphoneClip = Microphone.Start(null, true, 1, 44100);
+        }
+
+        private void StopMicrophoneInput()
+        {
+            if (Microphone.IsRecording(null))
+                Microphone.End(null);
+
+            microphoneClip = null;
+        }
+
+        private void UpdateMicrophoneScale(Mandelbox fractal, ControlsHelper helper)
+        {
+            if (microphoneClip == null || !Microphone.IsRecording(null))
+            {
+                StartMicrophoneInput();
+                return;
+            }
+
+            if (Time.unscaledTime < nextMicrophoneNudgeTime)
+                return;
+
+            int microphonePosition = Microphone.GetPosition(null) - MicrophoneSampleCount;
+            if (microphonePosition < 0)
+                microphonePosition += microphoneClip.samples;
+            microphoneClip.GetData(microphoneSamples, microphonePosition);
+
+            float sumOfSquares = 0f;
+            for (int i = 0; i < microphoneSamples.Length; i++)
+                sumOfSquares += microphoneSamples[i] * microphoneSamples[i];
+            float rmsLevel = Mathf.Sqrt(sumOfSquares / microphoneSamples.Length);
+            // Ignore quiet room tone, then strongly expand the remaining microphone range.
+            float volume = Mathf.InverseLerp(MicrophoneNoiseFloor, MicrophoneFullScaleLevel, rmsLevel);
+
+            // Each microphone event takes an independent, uneven step up or down.
+            // Those differences form a natural random walk through the allowed scale range.
+            float nudgeAmplitude = Mathf.Lerp(0.001f, 0.12f, volume);
+            float nudge = Random.Range(-nudgeAmplitude, nudgeAmplitude);
+            microphoneScaleTarget = Mathf.Clamp(microphoneScaleTarget + nudge,
+                MicrophoneCentreMin, MicrophoneCentreMax);
+            helper.targetScale = microphoneScaleTarget;
+            fractal.O_Scale = Mathf.SmoothDamp(fractal.scale, microphoneScaleTarget, ref mandelboxScaleVelocity, 0.075f);
+
+            // Loud sounds create much larger, more frequent nudges than quiet input.
+            nextMicrophoneNudgeTime = Time.unscaledTime + Mathf.Lerp(0.45f, 0.05f, volume);
         }
 
         // Converts time through one upward leg of the loop (0.5 -> 5.0) into a scale value.
@@ -351,9 +443,11 @@ namespace FractalShader
                 bool isTrackpadScale = mandelbox.controlsHelper != null && mandelbox.controlsHelper.trackpadScaleMode;
                 string modeStr = isTrackpadScale ? "<color=#00FF99>Scale Mode</color>" : "Orbit Mode";
                 string loopStr = mandelboxAutoLoop ? "<color=#00FF99>Active</color>" : "Off";
+                string microphoneStr = microphoneScaleMode ? "<color=#00FF99>Active</color>" : "Off";
                 return $"<b>MANDELBOX CONTROLS</b>\n\n" +
                        $"Scale: <b>{mandelbox.scale:F2}</b>\n" +
                        $"L  Scale Loop: <b>{loopStr}</b>\n" +
+                       $"U  Microphone Scale: <b>{microphoneStr}</b>\n" +
                        $"T  Trackpad Drag: <b>{modeStr}</b>\n" +
                        $"Left / Right Arrow  Smooth Scale\n" +
                        $"  + Shift (Turbo) / Cmd (Fine)\n" +
