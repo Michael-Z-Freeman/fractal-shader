@@ -42,6 +42,10 @@ namespace FractalShader
 		[Tooltip("When true, trackpad/mouse dragging scales the fractal instead of orbiting the camera.")]
 		public bool trackpadScaleMode;
 
+		// Shared smooth damping state for fractal scaling
+		[HideInInspector] public float targetScale = -1f;
+		private float scaleVelocity;
+
 		private void OnEnable()
 		{
 			app = GetComponent<App>();
@@ -215,15 +219,24 @@ namespace FractalShader
 
 		private void ApplyTrackpadScale(float dt)
 		{
-			// Vertical drag (or horizontal) adjusts fractal scale exponentially
-			float delta = mouseDelta.y != 0f ? mouseDelta.y : mouseDelta.x;
-			if (Mathf.Abs(delta) > 0.01f)
+			if (app is Mandelbox mandelbox)
 			{
-				if (app is Mandelbox mandelbox)
+				if (targetScale < 0f) targetScale = mandelbox.scale;
+
+				// Vertical drag (or horizontal) gently steers target scale
+				float delta = mouseDelta.y != 0f ? mouseDelta.y : mouseDelta.x;
+				if (Mathf.Abs(delta) > 0.01f)
 				{
-					// Proportional scale change: smooth and natural at both small and large scales
-					float factor = 1.0f + (delta * 0.015f);
-					mandelbox.O_Scale = Mathf.Clamp(mandelbox.scale * factor, 0.5f, 5f);
+					// Highly refined sensitivity: 0.0018f gives silky, responsive, non-jumping trackpad response
+					float factor = 1.0f + (delta * 0.0018f);
+					targetScale = Mathf.Clamp(targetScale * factor, 0.5f, 5f);
+				}
+
+				// Smooth damping: glides effortlessly to the target scale
+				if (!Mathf.Approximately(mandelbox.scale, targetScale))
+				{
+					mandelbox.O_Scale = Mathf.SmoothDamp(mandelbox.scale, targetScale, ref scaleVelocity, 0.1f);
+					app.ReRender();
 				}
 			}
 		}

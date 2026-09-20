@@ -16,6 +16,9 @@ namespace FractalShader
         private App app;
         private Text helpLabel;
 
+        // Smooth damping state for Mandelbox scale
+        private float mandelboxScaleVelocity;
+
         private void Awake()
         {
             app = GetComponent<App>();
@@ -60,30 +63,43 @@ namespace FractalShader
             ((keyboard.rightBracketKey.wasPressedThisFrame || keyboard.slashKey.wasPressedThisFrame || keyboard.periodKey.wasPressedThisFrame) ? 1f : 0f) -
             ((keyboard.leftBracketKey.wasPressedThisFrame || keyboard.commaKey.wasPressedThisFrame) ? 1f : 0f);
 
-        private static void UpdateMandelbox(Keyboard keyboard, Mandelbox fractal)
+        private void UpdateMandelbox(Keyboard keyboard, Mandelbox fractal)
         {
+            var helper = fractal.controlsHelper;
+
             // Toggle trackpad drag mode between Orbit and Scaling (T key)
-            if (keyboard.tKey.wasPressedThisFrame && fractal.controlsHelper != null)
+            if (keyboard.tKey.wasPressedThisFrame && helper != null)
             {
-                fractal.controlsHelper.trackpadScaleMode = !fractal.controlsHelper.trackpadScaleMode;
+                helper.trackpadScaleMode = !helper.trackpadScaleMode;
             }
 
-            // Refined keyboard scale control:
-            // - Proportional exponential scaling preserves consistent perceived speed regardless of zoom.
-            // - Shift = turbo speed (3x).
-            // - Ctrl / Cmd / Alt = precision micro speed (0.2x).
-            // - Single key tap gives a gentle initial step.
-            float dir = ArrowDirection(keyboard);
-            if (!Mathf.Approximately(dir, 0f))
+            // Use shared targetScale on ControlsHelper so keyboard and trackpad share the same state and damping
+            if (helper != null)
             {
-                bool isFast = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
-                bool isSlow = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed ||
-                              keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed ||
-                              keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed;
+                if (helper.targetScale < 0f) helper.targetScale = fractal.scale;
 
-                float speed = isFast ? 1.0f : (isSlow ? 0.08f : 0.28f);
-                float step = 1.0f + dir * speed * Time.deltaTime;
-                fractal.O_Scale = Mathf.Clamp(fractal.scale * step, 0.5f, 5f);
+                float dir = ArrowDirection(keyboard);
+                if (!Mathf.Approximately(dir, 0f))
+                {
+                    bool isFast = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+                    bool isSlow = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed ||
+                                  keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed ||
+                                  keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed;
+
+                    // Calibrated gentle keyboard speed: 0.08x/sec baseline
+                    float speed = isFast ? 0.35f : (isSlow ? 0.02f : 0.08f);
+                    float step = 1.0f + dir * speed * Time.deltaTime;
+                    helper.targetScale = Mathf.Clamp(helper.targetScale * step, 0.5f, 5f);
+                }
+
+                // If not currently dragging trackpad, keyboard damping handles the interpolation
+                if (!helper.trackpadScaleMode || !helper.isDragging)
+                {
+                    if (!Mathf.Approximately(fractal.scale, helper.targetScale))
+                    {
+                        fractal.O_Scale = Mathf.SmoothDamp(fractal.scale, helper.targetScale, ref mandelboxScaleVelocity, 0.09f);
+                    }
+                }
             }
 
             float iterations = BracketDirection(keyboard);
