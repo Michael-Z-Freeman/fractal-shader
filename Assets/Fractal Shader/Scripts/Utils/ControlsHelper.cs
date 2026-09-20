@@ -48,6 +48,17 @@ namespace FractalShader
 		[Tooltip("When true, trackpad/mouse dragging scales the fractal instead of orbiting the camera.")]
 		public bool trackpadScaleMode = true;
 
+		[Header("Orbit Momentum")]
+		[Tooltip("How strongly a trackpad drag sets the orbit's angular velocity.")]
+		[Min(0f)] public float orbitDragForce = 1f;
+		[Tooltip("How quickly the orbit responds to changes in drag direction.")]
+		[Min(0f)] public float orbitDragResponse = 18f;
+		[Tooltip("How quickly orbit momentum slows after releasing the trackpad. Set to 0 to keep rotating.")]
+		[Min(0f)] public float orbitAngularDrag = 0f;
+		[Tooltip("Maximum orbit rotation speed in degrees per second.")]
+		[Min(0f)] public float maxOrbitAngularSpeed = 180f;
+		private Vector2 orbitAngularVelocity;
+
 		// Shared smooth damping state for fractal scaling
 		[HideInInspector] public float targetScale = -1f;
 		private float scaleVelocity;
@@ -194,29 +205,48 @@ namespace FractalShader
 			float dt = app.RequestSmoothDeltaTime();
 			Keyboard keyboard = Keyboard.current;
 			if (keyboard != null && keyboard.pKey.wasPressedThisFrame && !animateAzimuth && !animateElevation)
+			{
 				returningToDefaultRotation = true;
+				orbitAngularVelocity = Vector2.zero;
+			}
 
 			// When Trackpad Scale Mode is active and cursor is locked (drag active), scale the fractal instead of orbiting
 			if (trackpadScaleMode && isLocked && !app.offlineRenderer.isRendering)
 			{
 				ApplyTrackpadScale(dt);
 			}
-			else
-			{
-				// Horizontal Rotation (Azimuth)
-				if (animateAzimuth) sphericalAngles.x = app.animationController.Get(animAzimuthID);
-				else if (!app.offlineRenderer.isRendering && isLocked)
-					sphericalAngles.x -= mouseDelta.x * dt * sensitivity;
 
-				// Vertical Rotation (Elevation)
-				if (animateElevation) sphericalAngles.y = app.animationController.Get(animElevationID);
-				else if (!app.offlineRenderer.isRendering && isLocked)
-					sphericalAngles.y -= mouseDelta.y * dt * sensitivity;
+			// Animation continues to control any animated axis.
+			if (animateAzimuth) sphericalAngles.x = app.animationController.Get(animAzimuthID);
+			if (animateElevation) sphericalAngles.y = app.animationController.Get(animElevationID);
+
+			if (!app.offlineRenderer.isRendering)
+			{
+				if (!trackpadScaleMode)
+				{
+					if (isLocked && mouseDelta.sqrMagnitude > 0.0001f)
+					{
+						// Pointer displacement acts as a force: a faster drag produces a faster release spin.
+						Vector2 targetVelocity = new Vector2(-mouseDelta.x, -mouseDelta.y) * sensitivity * orbitDragForce;
+						float response = 1f - Mathf.Exp(-orbitDragResponse * dt);
+						orbitAngularVelocity = Vector2.Lerp(orbitAngularVelocity, targetVelocity, response);
+						returningToDefaultRotation = false;
+					}
+					else
+					{
+						orbitAngularVelocity *= Mathf.Exp(-orbitAngularDrag * dt);
+					}
+				}
+
+				// Scale Mode leaves the existing spin untouched, so the fractal keeps rotating while it scales.
+				orbitAngularVelocity = Vector2.ClampMagnitude(orbitAngularVelocity, maxOrbitAngularSpeed);
+				if (!animateAzimuth) sphericalAngles.x += orbitAngularVelocity.x * dt;
+				if (!animateElevation) sphericalAngles.y += orbitAngularVelocity.y * dt;
 			}
 
 			// Press P once to gently restore the scene's original orbit direction without changing zoom.
 			// New mouse movement cancels the return so the user can take control immediately.
-			if (isLocked && mouseDelta.sqrMagnitude > 0.0001f)
+			if (isLocked && !trackpadScaleMode && mouseDelta.sqrMagnitude > 0.0001f)
 				returningToDefaultRotation = false;
 
 			if (returningToDefaultRotation)
@@ -234,7 +264,8 @@ namespace FractalShader
 			else if (!app.offlineRenderer.isRendering && isLocked)
 				radius -= zoomDelta * sensitivity / 3000f;
 
-			if (isLocked || animateAzimuth || animateElevation || animateRadius || returningToDefaultRotation)
+			bool hasOrbitMomentum = orbitAngularVelocity.sqrMagnitude > 0.0001f;
+			if (isLocked || animateAzimuth || animateElevation || animateRadius || returningToDefaultRotation || hasOrbitMomentum)
 			{
 				ClampOrbitBoundaries(ref radius, ref sphericalAngles);
 				t.localPosition = app.SphericalCoordsToCartesianCoords(sphericalAngles.x, sphericalAngles.y) * radius;
