@@ -18,6 +18,12 @@ namespace FractalShader
 		public float minRadius = 1f;
 		public float maxRadius = 5f;
 
+		[Header("Orbit Rotation Reset")]
+		[Tooltip("Degrees per second used after pressing P to return the orbit view to its initial rotation.")]
+		[Min(0f)] public float returnToDefaultRotationSpeed = 20f;
+		private Vector2 defaultOrbitAngles;
+		private bool returningToDefaultRotation;
+
 		// --- Standard Input States ---
 		[HideInInspector] public Vector2 moveInput, mouseDelta, dragStartPosition;
 		[HideInInspector] public float tiltInput, zoomDelta;
@@ -53,6 +59,10 @@ namespace FractalShader
 
 		private void Start()
 		{
+			Vector3 initialDirection = transform.localPosition.normalized;
+			if (initialDirection.sqrMagnitude > 0f)
+				defaultOrbitAngles = app.CartesianCoordsToSphericalCoords(initialDirection);
+
 			if (inputActions != null) inputActions.Enable();
 		}
 
@@ -182,6 +192,9 @@ namespace FractalShader
 			HandleAnimationSync(ref sphericalAngles, ref radius);
 
 			float dt = app.RequestSmoothDeltaTime();
+			Keyboard keyboard = Keyboard.current;
+			if (keyboard != null && keyboard.pKey.wasPressedThisFrame && !animateAzimuth && !animateElevation)
+				returningToDefaultRotation = true;
 
 			// When Trackpad Scale Mode is active and cursor is locked (drag active), scale the fractal instead of orbiting
 			if (trackpadScaleMode && isLocked && !app.offlineRenderer.isRendering)
@@ -201,12 +214,27 @@ namespace FractalShader
 					sphericalAngles.y -= mouseDelta.y * dt * sensitivity;
 			}
 
+			// Press P once to gently restore the scene's original orbit direction without changing zoom.
+			// New mouse movement cancels the return so the user can take control immediately.
+			if (isLocked && mouseDelta.sqrMagnitude > 0.0001f)
+				returningToDefaultRotation = false;
+
+			if (returningToDefaultRotation)
+			{
+				float step = returnToDefaultRotationSpeed * dt;
+				float azimuth = Mathf.MoveTowardsAngle(sphericalAngles.x, defaultOrbitAngles.x, step);
+				float elevation = Mathf.MoveTowards(sphericalAngles.y, defaultOrbitAngles.y, step);
+				sphericalAngles = new Vector2(azimuth, elevation);
+				returningToDefaultRotation = !Mathf.Approximately(azimuth, defaultOrbitAngles.x) ||
+					Mathf.Abs(elevation - defaultOrbitAngles.y) > 0.001f;
+			}
+
 			// Distance (Radius)
 			if (animateRadius) radius = app.animationController.Get(animRadiusID);
 			else if (!app.offlineRenderer.isRendering && isLocked)
 				radius -= zoomDelta * sensitivity / 3000f;
 
-			if (isLocked || animateAzimuth || animateElevation || animateRadius)
+			if (isLocked || animateAzimuth || animateElevation || animateRadius || returningToDefaultRotation)
 			{
 				ClampOrbitBoundaries(ref radius, ref sphericalAngles);
 				t.localPosition = app.SphericalCoordsToCartesianCoords(sphericalAngles.x, sphericalAngles.y) * radius;

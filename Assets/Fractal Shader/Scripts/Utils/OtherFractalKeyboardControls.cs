@@ -234,7 +234,7 @@ namespace FractalShader
             panel.anchorMax = new Vector2(0f, 1f);
             panel.pivot = new Vector2(0f, 1f);
             panel.anchoredPosition = new Vector2(260f, -120f);
-            panel.sizeDelta = new Vector2(450f, 335f);
+            panel.sizeDelta = new Vector2(450f, 360f);
 
             Image panelImage = helpOverlay.GetComponent<Image>();
             panelImage.color = new Color(0.02f, 0.03f, 0.06f, 0.82f);
@@ -261,7 +261,7 @@ namespace FractalShader
 
         private string HelpText()
         {
-            string common = "\n\nM  Return to main menu\nH  Hide / show this help";
+            string common = "\nP  Return to default rotation\nM  Return to main menu\nH  Hide / show this help";
             if (app is Mandelbox mandelbox)
             {
                 bool isTrackpadScale = mandelbox.controlsHelper != null && mandelbox.controlsHelper.trackpadScaleMode;
