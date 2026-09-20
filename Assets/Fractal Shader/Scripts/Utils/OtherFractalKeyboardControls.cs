@@ -15,6 +15,9 @@ namespace FractalShader
         [SerializeField] private GameObject helpOverlay;
         private App app;
         private Text helpLabel;
+        private GameObject frameRateCanvas;
+        private Text frameRateLabel;
+        private float smoothedFrameRate;
 
         // Smooth damping state for Mandelbox scale
         private float mandelboxScaleVelocity;
@@ -35,17 +38,24 @@ namespace FractalShader
             app = GetComponent<App>();
             HideLegacyOptions();
             CreateHelpOverlay();
+            CreateFrameRateDisplay();
         }
 
         private void Update()
         {
             HideLegacyOptions();
+            UpdateFrameRateDisplay();
             Keyboard keyboard = Keyboard.current;
             if (keyboard == null)
                 return;
 
             if (keyboard.hKey.wasPressedThisFrame && helpOverlay != null)
-                helpOverlay.SetActive(!helpOverlay.activeSelf);
+            {
+                bool showOverlay = !helpOverlay.activeSelf;
+                helpOverlay.SetActive(showOverlay);
+                if (frameRateCanvas != null)
+                    frameRateCanvas.SetActive(showOverlay);
+            }
 
             if (keyboard.mKey.wasPressedThisFrame)
             {
@@ -291,6 +301,46 @@ namespace FractalShader
             helpLabel.color = Color.white;
             helpLabel.raycastTarget = false;
             helpLabel.text = HelpText();
+        }
+
+        private void CreateFrameRateDisplay()
+        {
+            frameRateCanvas = new GameObject("Frame Rate Canvas", typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler));
+            Canvas canvas = frameRateCanvas.GetComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = 1;
+
+            CanvasScaler scaler = frameRateCanvas.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+            GameObject labelObject = new GameObject("Frame Rate", typeof(RectTransform), typeof(Text));
+            labelObject.transform.SetParent(frameRateCanvas.transform, false);
+            RectTransform labelTransform = labelObject.GetComponent<RectTransform>();
+            labelTransform.anchorMin = new Vector2(1f, 1f);
+            labelTransform.anchorMax = new Vector2(1f, 1f);
+            labelTransform.pivot = new Vector2(1f, 1f);
+            labelTransform.anchoredPosition = new Vector2(-32f, -28f);
+            labelTransform.sizeDelta = new Vector2(180f, 36f);
+
+            frameRateLabel = labelObject.GetComponent<Text>();
+            frameRateLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            frameRateLabel.fontSize = 22;
+            frameRateLabel.alignment = TextAnchor.UpperRight;
+            frameRateLabel.color = new Color(0.7f, 1f, 0.85f, 0.9f);
+            frameRateLabel.raycastTarget = false;
+            frameRateLabel.text = "FPS --";
+        }
+
+        private void UpdateFrameRateDisplay()
+        {
+            if (frameRateLabel == null || Time.unscaledDeltaTime <= 0f)
+                return;
+
+            float instantaneousFrameRate = 1f / Time.unscaledDeltaTime;
+            float smoothing = 1f - Mathf.Exp(-4f * Time.unscaledDeltaTime);
+            smoothedFrameRate = Mathf.Lerp(smoothedFrameRate, instantaneousFrameRate, smoothing);
+            frameRateLabel.text = $"FPS {Mathf.RoundToInt(smoothedFrameRate)}";
         }
 
         private string HelpText()
