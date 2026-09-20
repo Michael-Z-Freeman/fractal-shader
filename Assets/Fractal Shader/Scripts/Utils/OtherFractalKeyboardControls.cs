@@ -44,6 +44,7 @@ namespace FractalShader
         private readonly float[] microphoneSamples = new float[MicrophoneSampleCount];
         private float nextMicrophoneNudgeTime;
         private float microphoneScaleTarget = 1f;
+        private float microphoneScaleVelocity;
 
         private void Awake()
         {
@@ -131,6 +132,7 @@ namespace FractalShader
                 {
                     mandelboxAutoLoop = false;
                     microphoneScaleTarget = Mathf.Clamp(fractal.scale, MicrophoneCentreMin, MicrophoneCentreMax);
+                    microphoneScaleVelocity = 0f;
                     nextMicrophoneNudgeTime = Time.unscaledTime;
                     StartMicrophoneInput();
                 }
@@ -231,9 +233,6 @@ namespace FractalShader
                 return;
             }
 
-            if (Time.unscaledTime < nextMicrophoneNudgeTime)
-                return;
-
             int microphonePosition = Microphone.GetPosition(null) - MicrophoneSampleCount;
             if (microphonePosition < 0)
                 microphonePosition += microphoneClip.samples;
@@ -246,17 +245,28 @@ namespace FractalShader
             // Ignore quiet room tone, then strongly expand the remaining microphone range.
             float volume = Mathf.InverseLerp(MicrophoneNoiseFloor, MicrophoneFullScaleLevel, rmsLevel);
 
-            // Each microphone event takes an independent, uneven step up or down.
-            // Those differences form a natural random walk through the allowed scale range.
-            float nudgeAmplitude = Mathf.Lerp(0.001f, 0.12f, volume);
-            float nudge = Random.Range(-nudgeAmplitude, nudgeAmplitude);
-            microphoneScaleTarget = Mathf.Clamp(microphoneScaleTarget + nudge,
-                MicrophoneCentreMin, MicrophoneCentreMax);
-            helper.targetScale = microphoneScaleTarget;
-            fractal.O_Scale = Mathf.SmoothDamp(fractal.scale, microphoneScaleTarget, ref mandelboxScaleVelocity, 0.075f);
+            // Audio events add a changing push to the scale velocity. The target then glides continuously,
+            // like a sequence of uneven manual trackpad drags rather than discrete scale jumps.
+            if (Time.unscaledTime >= nextMicrophoneNudgeTime)
+            {
+                float impulse = Random.Range(-1f, 1f) * Mathf.Lerp(0.04f, 1.10f, volume);
+                microphoneScaleVelocity = Mathf.Clamp(microphoneScaleVelocity + impulse, -1.35f, 1.35f);
+                nextMicrophoneNudgeTime = Time.unscaledTime + Mathf.Lerp(0.18f, 0.025f, volume);
+            }
 
-            // Loud sounds create much larger, more frequent nudges than quiet input.
-            nextMicrophoneNudgeTime = Time.unscaledTime + Mathf.Lerp(0.45f, 0.05f, volume);
+            float dt = Time.unscaledDeltaTime;
+            microphoneScaleVelocity *= Mathf.Exp(-Mathf.Lerp(1.8f, 0.35f, volume) * dt);
+            microphoneScaleTarget += microphoneScaleVelocity * dt;
+
+            // Reverse gently at either end instead of abruptly clamping a jump.
+            if (microphoneScaleTarget < MicrophoneCentreMin || microphoneScaleTarget > MicrophoneCentreMax)
+            {
+                microphoneScaleTarget = Mathf.Clamp(microphoneScaleTarget, MicrophoneCentreMin, MicrophoneCentreMax);
+                microphoneScaleVelocity *= -0.55f;
+            }
+
+            helper.targetScale = microphoneScaleTarget;
+            fractal.O_Scale = Mathf.SmoothDamp(fractal.scale, microphoneScaleTarget, ref mandelboxScaleVelocity, 0.035f);
         }
 
         // Converts time through one upward leg of the loop (0.5 -> 5.0) into a scale value.
