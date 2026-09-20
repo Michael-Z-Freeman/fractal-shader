@@ -39,6 +39,9 @@ namespace FractalShader
         private const float MicrophoneCentreMax = 1.20f;
         private const float MicrophonePreferredScale = 1.02f;
         private const float MicrophoneLowerRangeBias = 5.5f;
+        private const float MicrophoneHighScaleThreshold = 1.05f;
+        private const float MicrophoneHighExcursionChance = 0.0025f;
+        private const float MicrophoneHighExcursionDuration = 0.35f;
         private const float MicrophoneNoiseFloor = 0.018f;
         private const float MicrophoneFullScaleLevel = 0.09f;
         private bool microphoneScaleMode;
@@ -47,6 +50,7 @@ namespace FractalShader
         private float nextMicrophoneNudgeTime;
         private float microphoneScaleTarget = 1f;
         private float microphoneScaleVelocity;
+        private float microphoneHighExcursionUntil;
 
         private void Awake()
         {
@@ -135,6 +139,7 @@ namespace FractalShader
                     mandelboxAutoLoop = false;
                     microphoneScaleTarget = Mathf.Clamp(fractal.scale, MicrophoneCentreMin, MicrophoneCentreMax);
                     microphoneScaleVelocity = 0f;
+                    microphoneHighExcursionUntil = 0f;
                     nextMicrophoneNudgeTime = Time.unscaledTime;
                     StartMicrophoneInput();
                 }
@@ -252,15 +257,44 @@ namespace FractalShader
             if (Time.unscaledTime >= nextMicrophoneNudgeTime)
             {
                 float impulse = Random.Range(-1f, 1f) * Mathf.Lerp(0.04f, 1.10f, volume);
+
+                // The 1.05-1.20 range is a rare loud-audio flourish, rather than the usual destination.
+                if (impulse > 0f && microphoneScaleTarget <= MicrophoneHighScaleThreshold &&
+                    volume > 0.65f && Random.value < MicrophoneHighExcursionChance * volume)
+                {
+                    microphoneHighExcursionUntil = Time.unscaledTime + MicrophoneHighExcursionDuration;
+                }
+
+                float activeUpperLimit = Time.unscaledTime < microphoneHighExcursionUntil
+                    ? MicrophoneCentreMax
+                    : MicrophoneHighScaleThreshold;
+
+                // Reduce upward pushes as the scale leaves the preferred lower range.
+                if (impulse > 0f)
+                {
+                    float highScaleProgress = Mathf.InverseLerp(MicrophoneHighScaleThreshold, activeUpperLimit, microphoneScaleTarget);
+                    impulse *= Mathf.Lerp(1f, 0.05f, highScaleProgress);
+                }
                 microphoneScaleVelocity = Mathf.Clamp(microphoneScaleVelocity + impulse, -1.35f, 1.35f);
                 nextMicrophoneNudgeTime = Time.unscaledTime + Mathf.Lerp(0.18f, 0.025f, volume);
             }
 
             float dt = Time.unscaledDeltaTime;
-            // Strongly favour the 0.99-1.05 region, while retaining occasional larger excursions.
-            microphoneScaleVelocity += (MicrophonePreferredScale - microphoneScaleTarget) * MicrophoneLowerRangeBias * dt;
+            // Strongly favour the 0.99-1.05 region; high excursions return quickly.
+            float highScaleReturnProgress = Mathf.InverseLerp(MicrophoneHighScaleThreshold, MicrophoneCentreMax, microphoneScaleTarget);
+            float restoringForce = MicrophoneLowerRangeBias * Mathf.Lerp(1f, 10f, highScaleReturnProgress);
+            microphoneScaleVelocity += (MicrophonePreferredScale - microphoneScaleTarget) * restoringForce * dt;
             microphoneScaleVelocity *= Mathf.Exp(-Mathf.Lerp(1.8f, 0.35f, volume) * dt);
             microphoneScaleTarget += microphoneScaleVelocity * dt;
+
+            float allowedUpperLimit = Time.unscaledTime < microphoneHighExcursionUntil
+                ? MicrophoneCentreMax
+                : MicrophoneHighScaleThreshold;
+            if (microphoneScaleTarget > allowedUpperLimit)
+            {
+                microphoneScaleTarget = allowedUpperLimit;
+                microphoneScaleVelocity = Mathf.Min(0f, microphoneScaleVelocity * -0.4f);
+            }
 
             // Reverse gently at either end instead of abruptly clamping a jump.
             if (microphoneScaleTarget < MicrophoneCentreMin || microphoneScaleTarget > MicrophoneCentreMax)
