@@ -37,6 +37,7 @@ namespace FractalShader
         private const int MicrophoneSampleCount = 256;
         private const float MicrophoneCentreMin = 0.99f;
         private const float MicrophoneCentreMax = 1.20f;
+        private const float MicrophonePreferredScale = 1.02f;
         private const float MicrophoneNoiseFloor = 0.008f;
         private const float MicrophoneFullScaleLevel = 0.06f;
         private bool microphoneScaleMode;
@@ -255,6 +256,8 @@ namespace FractalShader
             }
 
             float dt = Time.unscaledDeltaTime;
+            // Keep the random walk weighted toward the lower end of the 0.99-1.20 range without preventing higher excursions.
+            microphoneScaleVelocity += (MicrophonePreferredScale - microphoneScaleTarget) * 1.6f * dt;
             microphoneScaleVelocity *= Mathf.Exp(-Mathf.Lerp(1.8f, 0.35f, volume) * dt);
             microphoneScaleTarget += microphoneScaleVelocity * dt;
 
