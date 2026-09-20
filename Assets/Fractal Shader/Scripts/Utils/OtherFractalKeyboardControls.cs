@@ -18,6 +18,9 @@ namespace FractalShader
 
         // Smooth damping state for Mandelbox scale
         private float mandelboxScaleVelocity;
+        private bool mandelboxAutoLoop;
+        private float mandelboxLoopPhase;
+        private const float MandelboxLoopDuration = 270f; // Ultra-slow full round-trip duration in seconds (4.5 minutes)
 
         private void Awake()
         {
@@ -73,6 +76,22 @@ namespace FractalShader
                 helper.trackpadScaleMode = !helper.trackpadScaleMode;
             }
 
+            // Toggle automated slow scale loop through entire range and back (L key)
+            if (keyboard.lKey.wasPressedThisFrame)
+            {
+                mandelboxAutoLoop = !mandelboxAutoLoop;
+                if (mandelboxAutoLoop)
+                {
+                    // Map current scale into phase so it heads DOWN towards 0.5 first.
+                    // u = 1 means scale = 5.0 (at phase 0), u = 0 means scale = 0.5 (at phase PI).
+                    // Moving phase forward from [0, PI] decreases u (and thus decreases scale).
+                    float currentClamped = Mathf.Clamp(fractal.scale, 0.5f, 5.0f);
+                    float u = Mathf.InverseLerp(Mathf.Log(0.5f), Mathf.Log(5.0f), Mathf.Log(currentClamped));
+                    // acos(2u - 1) is in [0, PI], where phase increases -> scale decreases down to 0.5
+                    mandelboxLoopPhase = Mathf.Acos(Mathf.Clamp(2f * u - 1f, -1f, 1f));
+                }
+            }
+
             // Use shared targetScale on ControlsHelper so keyboard and trackpad share the same state and damping
             if (helper != null)
             {
@@ -81,6 +100,9 @@ namespace FractalShader
                 float dir = ArrowDirection(keyboard);
                 if (!Mathf.Approximately(dir, 0f))
                 {
+                    // Manual control interrupts automated loop
+                    mandelboxAutoLoop = false;
+
                     bool isFast = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
                     bool isSlow = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed ||
                                   keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed ||
@@ -92,9 +114,31 @@ namespace FractalShader
                     helper.targetScale = Mathf.Clamp(helper.targetScale * step, 0.5f, 5f);
                 }
 
-                // If not currently dragging trackpad, keyboard damping handles the interpolation
-                if (!helper.trackpadScaleMode || !helper.isDragging)
+                if (helper.trackpadScaleMode && helper.isDragging)
                 {
+                    // Trackpad drag interrupts automated loop
+                    mandelboxAutoLoop = false;
+                }
+
+                if (mandelboxAutoLoop)
+                {
+                    // Advance smooth geometric ping-pong phase
+                    mandelboxLoopPhase += (2f * Mathf.PI / MandelboxLoopDuration) * Time.deltaTime;
+                    if (mandelboxLoopPhase >= 2f * Mathf.PI)
+                        mandelboxLoopPhase -= 2f * Mathf.PI;
+
+                    // cos(phase) goes 1 -> -1 -> 1, so u goes 1 -> 0 -> 1.
+                    // Scale smoothly goes from current down to 0.5, then up to 5.0, then back.
+                    float u = 0.5f * (1f + Mathf.Cos(mandelboxLoopPhase));
+                    float logScale = Mathf.Lerp(Mathf.Log(0.5f), Mathf.Log(5.0f), u);
+                    float autoScale = Mathf.Exp(logScale);
+
+                    helper.targetScale = autoScale;
+                    fractal.O_Scale = autoScale;
+                }
+                else if (!helper.trackpadScaleMode || !helper.isDragging)
+                {
+                    // Smooth damping handles manual keyboard interpolation
                     if (!Mathf.Approximately(fractal.scale, helper.targetScale))
                     {
                         fractal.O_Scale = Mathf.SmoothDamp(fractal.scale, helper.targetScale, ref mandelboxScaleVelocity, 0.09f);
@@ -190,7 +234,7 @@ namespace FractalShader
             panel.anchorMax = new Vector2(0f, 1f);
             panel.pivot = new Vector2(0f, 1f);
             panel.anchoredPosition = new Vector2(260f, -120f);
-            panel.sizeDelta = new Vector2(445f, 310f);
+            panel.sizeDelta = new Vector2(450f, 335f);
 
             Image panelImage = helpOverlay.GetComponent<Image>();
             panelImage.color = new Color(0.02f, 0.03f, 0.06f, 0.82f);
@@ -222,8 +266,10 @@ namespace FractalShader
             {
                 bool isTrackpadScale = mandelbox.controlsHelper != null && mandelbox.controlsHelper.trackpadScaleMode;
                 string modeStr = isTrackpadScale ? "<color=#00FF99>Scale Mode</color>" : "Orbit Mode";
+                string loopStr = mandelboxAutoLoop ? "<color=#00FF99>Active</color>" : "Off";
                 return $"<b>MANDELBOX CONTROLS</b>\n\n" +
                        $"Scale: <b>{mandelbox.scale:F2}</b>\n" +
+                       $"L  Scale Loop: <b>{loopStr}</b>\n" +
                        $"T  Trackpad Drag: <b>{modeStr}</b>\n" +
                        $"Left / Right Arrow  Smooth Scale\n" +
                        $"  + Shift (Turbo) / Cmd (Fine)\n" +
