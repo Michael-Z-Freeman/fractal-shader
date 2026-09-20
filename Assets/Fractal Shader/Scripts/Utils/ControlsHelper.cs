@@ -46,7 +46,7 @@ namespace FractalShader
 
 		[Header("Trackpad Control Mode")]
 		[Tooltip("When true, trackpad/mouse dragging scales the fractal instead of orbiting the camera.")]
-		public bool trackpadScaleMode;
+		public bool trackpadScaleMode = true;
 
 		// Shared smooth damping state for fractal scaling
 		[HideInInspector] public float targetScale = -1f;
