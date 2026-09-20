@@ -22,6 +22,14 @@ namespace FractalShader
         private float mandelboxLoopPhase;
         private const float MandelboxLoopDuration = 270f; // Ultra-slow full round-trip duration in seconds (4.5 minutes)
 
+        // Relative traversal speeds: 0.5-1.0 and 1.5-5.0 are fast, while 1.0-1.5 is slow.
+        private const float FastLoopSpeed = 3f;
+        private const float SlowLoopSpeed = 1f / 3f;
+        private const float LowRangeDuration = (1f - 0.5f) / FastLoopSpeed;
+        private const float MiddleRangeDuration = (1.5f - 1f) / SlowLoopSpeed;
+        private const float HighRangeDuration = (5f - 1.5f) / FastLoopSpeed;
+        private const float OneWayLoopDuration = LowRangeDuration + MiddleRangeDuration + HighRangeDuration;
+
         private void Awake()
         {
             app = GetComponent<App>();
@@ -82,13 +90,9 @@ namespace FractalShader
                 mandelboxAutoLoop = !mandelboxAutoLoop;
                 if (mandelboxAutoLoop)
                 {
-                    // Map current scale into phase so it heads DOWN towards 0.5 first.
-                    // u = 1 means scale = 5.0 (at phase 0), u = 0 means scale = 0.5 (at phase PI).
-                    // Moving phase forward from [0, PI] decreases u (and thus decreases scale).
+                    // Map the current scale into the descending half of the loop so it heads to 0.5 first.
                     float currentClamped = Mathf.Clamp(fractal.scale, 0.5f, 5.0f);
-                    float u = Mathf.InverseLerp(Mathf.Log(0.5f), Mathf.Log(5.0f), Mathf.Log(currentClamped));
-                    // acos(2u - 1) is in [0, PI], where phase increases -> scale decreases down to 0.5
-                    mandelboxLoopPhase = Mathf.Acos(Mathf.Clamp(2f * u - 1f, -1f, 1f));
+                    mandelboxLoopPhase = Mathf.PI * (1f - ScaleToLoopProgress(currentClamped));
                 }
             }
 
@@ -127,11 +131,12 @@ namespace FractalShader
                     if (mandelboxLoopPhase >= 2f * Mathf.PI)
                         mandelboxLoopPhase -= 2f * Mathf.PI;
 
-                    // cos(phase) goes 1 -> -1 -> 1, so u goes 1 -> 0 -> 1.
-                    // Scale smoothly goes from current down to 0.5, then up to 5.0, then back.
-                    float u = 0.5f * (1f + Mathf.Cos(mandelboxLoopPhase));
-                    float logScale = Mathf.Lerp(Mathf.Log(0.5f), Mathf.Log(5.0f), u);
-                    float autoScale = Mathf.Exp(logScale);
+                    // The first half descends from 5.0 to 0.5; the second half climbs back.
+                    float cycleProgress = mandelboxLoopPhase / (2f * Mathf.PI);
+                    float scaleProgress = cycleProgress <= 0.5f
+                        ? 1f - cycleProgress * 2f
+                        : (cycleProgress - 0.5f) * 2f;
+                    float autoScale = LoopProgressToScale(scaleProgress);
 
                     helper.targetScale = autoScale;
                     fractal.O_Scale = autoScale;
@@ -150,6 +155,35 @@ namespace FractalShader
             if (!Mathf.Approximately(iterations, 0f)) fractal.O_Iterations = Mathf.Clamp(fractal.iterations + iterations, 1, 50);
             if (keyboard.jKey.wasPressedThisFrame) fractal.O_Julia = !fractal.julia;
             if (keyboard.kKey.wasPressedThisFrame) fractal.O_Mix = fractal.mix < 0.5f ? 1f : 0f;
+        }
+
+        // Converts time through one upward leg of the loop (0.5 -> 5.0) into a scale value.
+        private static float LoopProgressToScale(float progress)
+        {
+            float weightedTime = Mathf.Clamp01(progress) * OneWayLoopDuration;
+            if (weightedTime < LowRangeDuration)
+                return 0.5f + weightedTime * FastLoopSpeed;
+
+            weightedTime -= LowRangeDuration;
+            if (weightedTime < MiddleRangeDuration)
+                return 1f + weightedTime * SlowLoopSpeed;
+
+            weightedTime -= MiddleRangeDuration;
+            return Mathf.Min(5f, 1.5f + weightedTime * FastLoopSpeed);
+        }
+
+        // Converts a scale value into time through one upward leg so enabling the loop has no jump.
+        private static float ScaleToLoopProgress(float scale)
+        {
+            float weightedTime;
+            if (scale < 1f)
+                weightedTime = (scale - 0.5f) / FastLoopSpeed;
+            else if (scale < 1.5f)
+                weightedTime = LowRangeDuration + (scale - 1f) / SlowLoopSpeed;
+            else
+                weightedTime = LowRangeDuration + MiddleRangeDuration + (scale - 1.5f) / FastLoopSpeed;
+
+            return Mathf.Clamp01(weightedTime / OneWayLoopDuration);
         }
 
         private static void UpdateMandelbrot(Keyboard keyboard, Mandelbrot fractal)
