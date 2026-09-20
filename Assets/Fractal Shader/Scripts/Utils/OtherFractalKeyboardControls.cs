@@ -14,6 +14,7 @@ namespace FractalShader
     {
         [SerializeField] private GameObject helpOverlay;
         private App app;
+        private Text helpLabel;
 
         private void Awake()
         {
@@ -44,6 +45,9 @@ namespace FractalShader
             else if (app is MengerSponge menger) UpdateMengerSponge(keyboard, menger);
             else if (app is OctahedronFlake octahedron) UpdateOctahedronFlake(keyboard, octahedron);
             else if (app is Sierpinski sierpinski) UpdateSierpinski(keyboard, sierpinski);
+
+            if (helpOverlay != null && helpOverlay.activeSelf && helpLabel != null)
+                helpLabel.text = HelpText();
         }
 
         private static float ArrowDirection(Keyboard keyboard) =>
@@ -58,8 +62,30 @@ namespace FractalShader
 
         private static void UpdateMandelbox(Keyboard keyboard, Mandelbox fractal)
         {
-            float direction = ArrowDirection(keyboard);
-            if (!Mathf.Approximately(direction, 0f)) fractal.O_Scale = Mathf.Clamp(fractal.scale + direction * Time.deltaTime, 0.5f, 5f);
+            // Toggle trackpad drag mode between Orbit and Scaling (T key)
+            if (keyboard.tKey.wasPressedThisFrame && fractal.controlsHelper != null)
+            {
+                fractal.controlsHelper.trackpadScaleMode = !fractal.controlsHelper.trackpadScaleMode;
+            }
+
+            // Refined keyboard scale control:
+            // - Proportional exponential scaling preserves consistent perceived speed regardless of zoom.
+            // - Shift = turbo speed (3x).
+            // - Ctrl / Cmd / Alt = precision micro speed (0.2x).
+            // - Single key tap gives a gentle initial step.
+            float dir = ArrowDirection(keyboard);
+            if (!Mathf.Approximately(dir, 0f))
+            {
+                bool isFast = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+                bool isSlow = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed ||
+                              keyboard.leftCommandKey.isPressed || keyboard.rightCommandKey.isPressed ||
+                              keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed;
+
+                float speed = isFast ? 1.0f : (isSlow ? 0.08f : 0.28f);
+                float step = 1.0f + dir * speed * Time.deltaTime;
+                fractal.O_Scale = Mathf.Clamp(fractal.scale * step, 0.5f, 5f);
+            }
+
             float iterations = BracketDirection(keyboard);
             if (!Mathf.Approximately(iterations, 0f)) fractal.O_Iterations = Mathf.Clamp(fractal.iterations + iterations, 1, 50);
             if (keyboard.jKey.wasPressedThisFrame) fractal.O_Julia = !fractal.julia;
@@ -162,21 +188,34 @@ namespace FractalShader
             labelTransform.offsetMin = new Vector2(18f, 14f);
             labelTransform.offsetMax = new Vector2(-18f, -14f);
 
-            Text label = labelObject.GetComponent<Text>();
-            label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            label.fontSize = 18;
-            label.alignment = TextAnchor.UpperLeft;
-            label.horizontalOverflow = HorizontalWrapMode.Overflow;
-            label.verticalOverflow = VerticalWrapMode.Overflow;
-            label.color = Color.white;
-            label.raycastTarget = false;
-            label.text = HelpText();
+            helpLabel = labelObject.GetComponent<Text>();
+            helpLabel.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            helpLabel.fontSize = 18;
+            helpLabel.alignment = TextAnchor.UpperLeft;
+            helpLabel.horizontalOverflow = HorizontalWrapMode.Overflow;
+            helpLabel.verticalOverflow = VerticalWrapMode.Overflow;
+            helpLabel.color = Color.white;
+            helpLabel.raycastTarget = false;
+            helpLabel.text = HelpText();
         }
 
         private string HelpText()
         {
             string common = "\n\nM  Return to main menu\nH  Hide / show this help";
-            if (app is Mandelbox) return "<b>MANDELBOX CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Scale\n[ / ] or , / .  Iterations\nJ  Toggle Julia mode\nK  Toggle colour mix" + common;
+            if (app is Mandelbox mandelbox)
+            {
+                bool isTrackpadScale = mandelbox.controlsHelper != null && mandelbox.controlsHelper.trackpadScaleMode;
+                string modeStr = isTrackpadScale ? "<color=#00FF99>Scale Mode</color>" : "Orbit Mode";
+                return $"<b>MANDELBOX CONTROLS</b>\n\n" +
+                       $"Scale: <b>{mandelbox.scale:F2}</b>\n" +
+                       $"T  Trackpad Drag: <b>{modeStr}</b>\n" +
+                       $"Left / Right Arrow  Smooth Scale\n" +
+                       $"  + Shift (Turbo) / Cmd (Fine)\n" +
+                       $"Mouse / Trackpad  Orbit / Zoom\n" +
+                       $"[ / ] or , / .  Iterations ({mandelbox.iterations})\n" +
+                       $"J  Toggle Julia mode\n" +
+                       $"K  Toggle colour mix" + common;
+            }
             if (app is Mandelbrot) return "<b>MANDELBROT CONTROLS</b>\n\nMouse wheel  Zoom\nMouse drag  Pan\nRight click  Julia at cursor\nLeft / Right Arrow  Iterations\nJ  Toggle Julia mode" + common;
             if (app is Mandelbulb) return "<b>MANDELBULB CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Power\n[ / ] or , / .  Iterations\nJ  Toggle Julia mode\nA  Toggle alternate formula\nK  Toggle colour mix" + common;
             if (app is MengerSponge) return "<b>MENGER SPONGE CONTROLS</b>\n\nMouse  Orbit / zoom\nLeft / Right Arrow  Size\n[ / ] or , / .  Iterations\nX  Toggle cut\nG  Toggle edge size\nC  Toggle Cantor mode" + common;

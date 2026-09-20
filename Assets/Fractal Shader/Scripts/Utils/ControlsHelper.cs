@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
@@ -37,6 +37,10 @@ namespace FractalShader
 		public bool animateRadius;
 
 		private int animElevationID, animAzimuthID, animRadiusID;
+
+		[Header("Trackpad Control Mode")]
+		[Tooltip("When true, trackpad/mouse dragging scales the fractal instead of orbiting the camera.")]
+		public bool trackpadScaleMode;
 
 		private void OnEnable()
 		{
@@ -175,15 +179,23 @@ namespace FractalShader
 
 			float dt = app.RequestSmoothDeltaTime();
 
-			// Horizontal Rotation (Azimuth)
-			if (animateAzimuth) sphericalAngles.x = app.animationController.Get(animAzimuthID);
-			else if (!app.offlineRenderer.isRendering && isLocked)
-				sphericalAngles.x -= mouseDelta.x * dt * sensitivity;
+			// When Trackpad Scale Mode is active and cursor is locked (drag active), scale the fractal instead of orbiting
+			if (trackpadScaleMode && isLocked && !app.offlineRenderer.isRendering)
+			{
+				ApplyTrackpadScale(dt);
+			}
+			else
+			{
+				// Horizontal Rotation (Azimuth)
+				if (animateAzimuth) sphericalAngles.x = app.animationController.Get(animAzimuthID);
+				else if (!app.offlineRenderer.isRendering && isLocked)
+					sphericalAngles.x -= mouseDelta.x * dt * sensitivity;
 
-			// Vertical Rotation (Elevation)
-			if (animateElevation) sphericalAngles.y = app.animationController.Get(animElevationID);
-			else if (!app.offlineRenderer.isRendering && isLocked)
-				sphericalAngles.y -= mouseDelta.y * dt * sensitivity;
+				// Vertical Rotation (Elevation)
+				if (animateElevation) sphericalAngles.y = app.animationController.Get(animElevationID);
+				else if (!app.offlineRenderer.isRendering && isLocked)
+					sphericalAngles.y -= mouseDelta.y * dt * sensitivity;
+			}
 
 			// Distance (Radius)
 			if (animateRadius) radius = app.animationController.Get(animRadiusID);
@@ -198,6 +210,21 @@ namespace FractalShader
 				Transform parent = t.parent;
 				t.LookAt(parent ? parent.position : Vector3.zero);
 				app.ReRender();
+			}
+		}
+
+		private void ApplyTrackpadScale(float dt)
+		{
+			// Vertical drag (or horizontal) adjusts fractal scale exponentially
+			float delta = mouseDelta.y != 0f ? mouseDelta.y : mouseDelta.x;
+			if (Mathf.Abs(delta) > 0.01f)
+			{
+				if (app is Mandelbox mandelbox)
+				{
+					// Proportional scale change: smooth and natural at both small and large scales
+					float factor = 1.0f + (delta * 0.015f);
+					mandelbox.O_Scale = Mathf.Clamp(mandelbox.scale * factor, 0.5f, 5f);
+				}
 			}
 		}
 
