@@ -1,4 +1,4 @@
-﻿#pragma kernel CSMain
+#pragma kernel CSMain
 
 // Core Render Textures
 RWTexture2D<float4> Texture;
@@ -31,9 +31,10 @@ int _Width;
 int _Height;
 
 // Raymarching Constants
-static const int steps = 400;
+static const int steps = 180;
 static const float minimumEpsilon = 0.0001;
 static const float bailoutRadiusSquared = 256.0;
+static const float marchStepMultiplier = 1.15;
 
 // Base structure for a ray in 3D space
 struct Ray
@@ -109,14 +110,13 @@ Data DE(float3 p, float pixelFootprint, uint2 pixel)
     
     int visibleIterationFloor = min(Iterations, max(1, MinimumVisibleIterations));
     int stableIterationLimit = min(Iterations, max(visibleIterationFloor, StableIterations));
-    float inverseScale = rcp(max(abs(Scale), 1.01));
-    float detailSize = 2.0;
 
     for (int i = 0; i < Iterations; i++)
     {
-        // Further structure is sub-pixel at this depth, so it cannot alter the
-        // displayed image enough to justify another full Mandelbox fold.
-        if (PixelFootprintCulling == 1 && i >= visibleIterationFloor && detailSize < pixelFootprint)
+        // 1.0 / dr represents the exact geometric detail scale in world space at this recursion depth.
+        // Once this falls below the screen pixel footprint, additional recursion contributes only
+        // sub-pixel detail, so we safely break. This works reliably across all scale factors.
+        if (PixelFootprintCulling == 1 && i >= visibleIterationFloor && (2.0 / dr) < pixelFootprint)
             break;
 
         // A half-rate fine-detail pass is intentionally temporal/organic: all
@@ -139,8 +139,6 @@ Data DE(float3 p, float pixelFootprint, uint2 pixel)
         // VJ renderer; bailing avoids useless late folds in empty space.
         if (dot(z, z) > bailoutRadiusSquared)
             break;
-
-        detailSize *= inverseScale;
     }
     
     // Return distance to the surface, and the orbit trap vector for coloring
@@ -191,7 +189,7 @@ Data March(Ray ray, uint2 pixel)
         if (d.n < pixelFootprint)
             break;
             
-        ray.origin += ray.direction * d.n;
+        ray.origin += ray.direction * (d.n * marchStepMultiplier);
         s++;
     }
     
