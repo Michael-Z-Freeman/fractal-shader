@@ -922,7 +922,7 @@ MonoBehaviour:
   c: {x: 0, y: 0, z: 0}
   boxColor: {r: 0.04, g: 0.59, b: 0.78, a: 1}
   backgroundColor: {r: 0, g: 0, b: 0, a: 1}
-  mix: 0.5
+  mix: 0
   emissionStrength: 2
   fogDensity: 80
   maxDistance: 100

@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 
 namespace FractalShader
 {
@@ -45,7 +45,7 @@ namespace FractalShader
 		public Color backgroundColor = Color.black;
 
 		[Tooltip("Blends between the algorithmic orbit trap color and the solid Box Color.")]
-		[Range(0f, 1f)] public float mix = 0.5f;
+		[Range(0f, 1f)] public float mix = 0f;
 
 		[Tooltip("Intensity of the glow/emission effect.")]
 		[Range(0.1f, 10f)] public float emissionStrength = 2f;

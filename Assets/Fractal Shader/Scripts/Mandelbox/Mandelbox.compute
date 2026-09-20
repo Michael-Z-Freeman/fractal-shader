@@ -210,8 +210,9 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     Ray ray = CreateCameraRay(uv);
     Data res = March(ray, id.xy);
     
-    // Calculate color by blending user-defined color with the algorithmic orbit trap color
-    float3 finalColor = (Color / 255.0) * Mix + normalize(abs(res.p)) * (1.0 - Mix);
+    // Calculate color by blending user-defined color with the algorithmic orbit trap color.
+    // Color is already normalized in [0, 1] range from C# (Color format).
+    float3 finalColor = Color * Mix + normalize(abs(res.p)) * (1.0 - Mix);
     
     // Only apply the color if the ray actually hit an object
     // This prevents the background/skybox from being overwritten
