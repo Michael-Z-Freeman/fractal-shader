@@ -38,7 +38,7 @@ namespace FractalShader
 			yield return new WaitForSeconds(0.2f);
 
 			// 1. Güvenlik Kontrolü: App referansı var mı?
-			if (app == null) app = Object.FindFirstObjectByType<App>();
+			if (app == null) app = Object.FindAnyObjectByType<App>();
 
 			if (app == null || app.optionsManager == null)
 			{

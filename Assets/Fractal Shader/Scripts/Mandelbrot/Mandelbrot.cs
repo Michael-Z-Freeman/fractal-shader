@@ -40,7 +40,7 @@ namespace FractalShader
 		private Vector2 center = new Vector2(-0.5f, 0f);
 		private Vector3[] colorGradient;
 		private TextMeshProUGUI coordinateText;
-		public ComputeBuffer colorBuffer;
+		[System.NonSerialized] public ComputeBuffer colorBuffer;
 
 		/// <summary>
 		/// Generates a random color vector for the procedural gradient.

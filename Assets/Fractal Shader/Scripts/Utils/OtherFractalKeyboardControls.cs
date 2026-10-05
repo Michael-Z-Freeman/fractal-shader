@@ -35,22 +35,19 @@ namespace FractalShader
 
         // Microphone-reactive Mandelbox scale state.
         private const int MicrophoneSampleCount = 256;
-        private const float MicrophoneCentreMin = 0.99f;
-        private const float MicrophoneCentreMax = 1.20f;
-        private const float MicrophonePreferredScale = 1.02f;
-        private const float MicrophoneLowerRangeBias = 5.5f;
-        private const float MicrophoneHighScaleThreshold = 1.05f;
-        private const float MicrophoneHighExcursionChance = 0.0025f;
-        private const float MicrophoneHighExcursionDuration = 0.35f;
-        private const float MicrophoneNoiseFloor = 0.018f;
-        private const float MicrophoneFullScaleLevel = 0.09f;
+        private const float MicrophoneNoiseFloor = 0.003f;
+        private const float MicrophoneFullScaleLevel = 0.03f;
+        // These are pointer-pixel deltas, matching ControlsHelper.ApplyTrackpadScale.
+        private const float MicrophoneVirtualDragMax = 12f;
+        private const float MicrophoneDirectionChangeMinInterval = 0.08f;
+        private const float MicrophoneDirectionChangeMaxInterval = 0.22f;
         private bool microphoneScaleMode;
         private AudioClip microphoneClip;
+        private string microphoneDevice;
         private readonly float[] microphoneSamples = new float[MicrophoneSampleCount];
-        private float nextMicrophoneNudgeTime;
-        private float microphoneScaleTarget = 1f;
-        private float microphoneScaleVelocity;
-        private float microphoneHighExcursionUntil;
+        private float nextMicrophoneDirectionChangeTime;
+        private float microphoneVirtualDragDirection;
+        private float microphoneVirtualDragStrength = 1f;
 
         private void Awake()
         {
@@ -137,10 +134,11 @@ namespace FractalShader
                 if (microphoneScaleMode)
                 {
                     mandelboxAutoLoop = false;
-                    microphoneScaleTarget = Mathf.Clamp(fractal.scale, MicrophoneCentreMin, MicrophoneCentreMax);
-                    microphoneScaleVelocity = 0f;
-                    microphoneHighExcursionUntil = 0f;
-                    nextMicrophoneNudgeTime = Time.unscaledTime;
+                    if (helper != null)
+                        helper.targetScale = fractal.scale;
+                    microphoneVirtualDragDirection = Random.value < 0.5f ? -1f : 1f;
+                    microphoneVirtualDragStrength = Random.Range(0.6f, 1f);
+                    nextMicrophoneDirectionChangeTime = Time.unscaledTime;
                     StartMicrophoneInput();
                 }
                 else
@@ -217,30 +215,54 @@ namespace FractalShader
         private void StartMicrophoneInput()
         {
             if (Microphone.devices.Length == 0)
+            {
+                Debug.LogWarning("[Microphone Scale] No microphone input device is available.", this);
+                return;
+            }
+
+            if (!Application.HasUserAuthorization(UserAuthorization.Microphone))
+            {
+                Application.RequestUserAuthorization(UserAuthorization.Microphone);
+                return;
+            }
+
+            if (microphoneClip != null)
                 return;
 
-            Application.RequestUserAuthorization(UserAuthorization.Microphone);
+            // Prefer a physical microphone over virtual audio devices such as Teams.
+            microphoneDevice = Microphone.devices[0];
+            for (int i = 0; i < Microphone.devices.Length; i++)
+            {
+                if (!Microphone.devices[i].Contains("Teams"))
+                {
+                    microphoneDevice = Microphone.devices[i];
+                    break;
+                }
+            }
+
+            microphoneClip = Microphone.Start(microphoneDevice, true, 1, 44100);
             if (microphoneClip == null)
-                microphoneClip = Microphone.Start(null, true, 1, 44100);
+                Debug.LogWarning($"[Microphone Scale] Could not start '{microphoneDevice}'. Check macOS microphone permission.", this);
         }
 
         private void StopMicrophoneInput()
         {
-            if (Microphone.IsRecording(null))
-                Microphone.End(null);
+            if (!string.IsNullOrEmpty(microphoneDevice) && Microphone.IsRecording(microphoneDevice))
+                Microphone.End(microphoneDevice);
 
             microphoneClip = null;
+            microphoneDevice = null;
         }
 
         private void UpdateMicrophoneScale(Mandelbox fractal, ControlsHelper helper)
         {
-            if (microphoneClip == null || !Microphone.IsRecording(null))
+            if (microphoneClip == null || !Microphone.IsRecording(microphoneDevice))
             {
                 StartMicrophoneInput();
                 return;
             }
 
-            int microphonePosition = Microphone.GetPosition(null) - MicrophoneSampleCount;
+            int microphonePosition = Microphone.GetPosition(microphoneDevice) - MicrophoneSampleCount;
             if (microphonePosition < 0)
                 microphonePosition += microphoneClip.samples;
             microphoneClip.GetData(microphoneSamples, microphonePosition);
@@ -249,62 +271,38 @@ namespace FractalShader
             for (int i = 0; i < microphoneSamples.Length; i++)
                 sumOfSquares += microphoneSamples[i] * microphoneSamples[i];
             float rmsLevel = Mathf.Sqrt(sumOfSquares / microphoneSamples.Length);
-            // Ignore quiet room tone, then strongly expand the remaining microphone range.
+            // Ignore quiet room tone, then map the remaining signal to a virtual trackpad drag.
             float volume = Mathf.InverseLerp(MicrophoneNoiseFloor, MicrophoneFullScaleLevel, rmsLevel);
+            float dragAmount = Mathf.Sqrt(volume);
 
-            // Audio events add a changing push to the scale velocity. The target then glides continuously,
-            // like a sequence of uneven manual trackpad drags rather than discrete scale jumps.
-            if (Time.unscaledTime >= nextMicrophoneNudgeTime)
+            if (dragAmount > 0f)
             {
-                float impulse = Random.Range(-1f, 1f) * Mathf.Lerp(0.04f, 1.10f, volume);
-
-                // The 1.05-1.20 range is a rare loud-audio flourish, rather than the usual destination.
-                if (impulse > 0f && microphoneScaleTarget <= MicrophoneHighScaleThreshold &&
-                    volume > 0.65f && Random.value < MicrophoneHighExcursionChance * volume)
+                // Reverse direction in short, uneven strokes, as though a finger were repeatedly
+                // dragging the trackpad up and down. Loud input shortens the random intervals.
+                if (Time.unscaledTime >= nextMicrophoneDirectionChangeTime)
                 {
-                    microphoneHighExcursionUntil = Time.unscaledTime + MicrophoneHighExcursionDuration;
+                    microphoneVirtualDragDirection *= -1f;
+                    microphoneVirtualDragStrength = Random.Range(0.6f, 1f);
+                    float maximumInterval = Mathf.Lerp(
+                        MicrophoneDirectionChangeMaxInterval, MicrophoneDirectionChangeMinInterval, dragAmount);
+                    nextMicrophoneDirectionChangeTime = Time.unscaledTime +
+                        Random.Range(MicrophoneDirectionChangeMinInterval, maximumInterval);
                 }
 
-                float activeUpperLimit = Time.unscaledTime < microphoneHighExcursionUntil
-                    ? MicrophoneCentreMax
-                    : MicrophoneHighScaleThreshold;
-
-                // Reduce upward pushes as the scale leaves the preferred lower range.
-                if (impulse > 0f)
-                {
-                    float highScaleProgress = Mathf.InverseLerp(MicrophoneHighScaleThreshold, activeUpperLimit, microphoneScaleTarget);
-                    impulse *= Mathf.Lerp(1f, 0.05f, highScaleProgress);
-                }
-                microphoneScaleVelocity = Mathf.Clamp(microphoneScaleVelocity + impulse, -1.35f, 1.35f);
-                nextMicrophoneNudgeTime = Time.unscaledTime + Mathf.Lerp(0.18f, 0.025f, volume);
+                // Use the exact Scale Mode multiplier. The time adjustment keeps the virtual
+                // pixel delta consistent at different frame rates.
+                float virtualDelta = microphoneVirtualDragDirection * microphoneVirtualDragStrength *
+                    MicrophoneVirtualDragMax * dragAmount * Time.unscaledDeltaTime * 60f;
+                float factor = 1f + virtualDelta * 0.0018f;
+                helper.targetScale = Mathf.Clamp(helper.targetScale * factor, 0.5f, 5f);
             }
 
-            float dt = Time.unscaledDeltaTime;
-            // Strongly favour the 0.99-1.05 region; high excursions return quickly.
-            float highScaleReturnProgress = Mathf.InverseLerp(MicrophoneHighScaleThreshold, MicrophoneCentreMax, microphoneScaleTarget);
-            float restoringForce = MicrophoneLowerRangeBias * Mathf.Lerp(1f, 10f, highScaleReturnProgress);
-            microphoneScaleVelocity += (MicrophonePreferredScale - microphoneScaleTarget) * restoringForce * dt;
-            microphoneScaleVelocity *= Mathf.Exp(-Mathf.Lerp(1.8f, 0.35f, volume) * dt);
-            microphoneScaleTarget += microphoneScaleVelocity * dt;
-
-            float allowedUpperLimit = Time.unscaledTime < microphoneHighExcursionUntil
-                ? MicrophoneCentreMax
-                : MicrophoneHighScaleThreshold;
-            if (microphoneScaleTarget > allowedUpperLimit)
+            // Just as Scale Mode does after the finger stops, finish smoothing to the last target.
+            if (!Mathf.Approximately(fractal.scale, helper.targetScale))
             {
-                microphoneScaleTarget = allowedUpperLimit;
-                microphoneScaleVelocity = Mathf.Min(0f, microphoneScaleVelocity * -0.4f);
+                fractal.O_Scale = Mathf.SmoothDamp(fractal.scale, helper.targetScale, ref mandelboxScaleVelocity, 0.1f);
+                app.ReRender();
             }
-
-            // Reverse gently at either end instead of abruptly clamping a jump.
-            if (microphoneScaleTarget < MicrophoneCentreMin || microphoneScaleTarget > MicrophoneCentreMax)
-            {
-                microphoneScaleTarget = Mathf.Clamp(microphoneScaleTarget, MicrophoneCentreMin, MicrophoneCentreMax);
-                microphoneScaleVelocity *= -0.55f;
-            }
-
-            helper.targetScale = microphoneScaleTarget;
-            fractal.O_Scale = Mathf.SmoothDamp(fractal.scale, microphoneScaleTarget, ref mandelboxScaleVelocity, 0.035f);
         }
 
         // Converts time through one upward leg of the loop (0.5 -> 5.0) into a scale value.
